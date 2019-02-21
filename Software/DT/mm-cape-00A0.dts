@@ -1,0 +1,95 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "ti,beaglebone", "ti,beaglebone-black";
+    part-number = "mm-cape";
+    version = "00A0";
+
+	fragment@0 {
+		target = <&ocp>;
+		__overlay__ {
+			P8_27_pinmux { status = "disabled"; };
+			P8_28_pinmux { status = "disabled"; }; 
+			P8_43_pinmux { status = "disabled"; };
+			P8_44_pinmux { status = "disabled"; };
+			P8_45_pinmux { status = "disabled"; };
+			P8_46_pinmux { status = "disabled"; };
+			P9_27_pinmux { status = "disabled"; };
+			P9_28_pinmux { status = "disabled"; };
+			P9_29_pinmux { status = "disabled"; };
+			P9_30_pinmux { status = "disabled"; };
+			P9_31_pinmux { status = "disabled"; };
+			P9_23_pinmux { status = "disabled"; };
+			P9_24_pinmux { status = "disabled"; };
+			P9_15_pinmux { status = "disabled"; };
+		};
+	};
+	
+	fragment@1 {
+		target = <&ocp>;
+		__overlay__ {
+			cape-universal { status = "disabled"; };
+		};
+	};
+	
+	fragment@2 {
+		target = <&ocp>;
+		__overlay__ {
+			cape-universal@1 {
+				compatible = "gpio-of-helper";
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <>;
+			};
+		};
+	};
+	
+	fragment@3 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			mm_imu_pins: mm_imu_pins {
+				pinctrl-single,pins = <
+					0x0E0 0x15 /* P8_27 - lcd_vsync -> IMU_DIN   (MODE5 | OUTPUT | PULLUP) */
+					0x0E8 0x15 /* P8_28 - lcd_pclk  -> IMU_SCK   (MODE5 | OUTPUT | PULLUP) */
+					0x0A8 0x15 /* P8_43 - lcd_data2 -> IMU_CSAG  (MODE5 | OUTPUT | PULLUP) */
+					0x0AC 0x15 /* P8_44 - lcd_data3 -> IMU_CSM   (MODE5 | OUTPUT | PULLUP) */
+					0x0A0 0x36 /* P8_45 - lcd_data0 -> IMU_SDOAG (MODE6 | INPUT | PULLUP) */
+					0x0A4 0x36 /* P8_46 - lcd_data1 -> IMU_SDOM  (MODE6 | INPUT | PULLUP) */
+					
+				>;
+			};
+			
+			mm_motor_pins: mm_motor_pins {
+				pinctrl-single,pins = <
+					0x1A4 0x17 /* P9_27 - mcasp0_fsr    -> M_EN  (MODE7 | OUTPUT | PULLUP) */
+					0x19C 0x17 /* P9_28 - mcasp0_ahclkr -> M2_DIR (MODE7 | OUTPUT | PULLUP) */
+					0x194 0x17 /* P9_29 - mcasp0_fsx    -> M1_DIR  (MODE7 | OUTPUT | PULLUP) */
+					0x198 0x15 /* P9_30 - mcasp0_axr0   -> M2_STEP (MODE5 | OUTPUT | PULLUP) */
+					0x190 0x15 /* P9_31 - mcasp0_aclkx  -> M1_STEP    (MODE5 | OUTPUT | PULLUP) */
+				>;
+			};
+			
+			mm_gpio_pins: mm_gpio_pins {
+				pinctrl-single,pins = <
+					0x044 0x37 /* P9_23 - gpmc_a1   -> BUT1      (MODE7 | INPUT | PULLUP) */
+					0x184 0x37 /* P9_24 - uart1_txd -> BUT2      (MODE7 | INPUT | PULLUP) */ 
+					0x040 0x2F /* P9_15 - gpmc_a0   -> BMS_ALERT (MODE7 | INPUT | NO PULL) */
+				>;
+			};
+		};
+	};
+	
+	fragment@4 {
+		target = <&ocp>;
+		__overlay__ {
+			mm_pin_helper: mm_pin_helper {
+				compatible = "bone-pinmux-helper";
+				pinctrl-names = "default";
+				pinctrl-0 = <&mm_imu_pins &mm_motor_pins &mm_gpio_pins>;
+				status = "okay";
+			};
+		};
+	};
+};
+

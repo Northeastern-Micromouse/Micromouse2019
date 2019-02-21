@@ -1,0 +1,91 @@
+Protel Design System Design Rule Check
+PCB File : C:\Users\billy_000\Documents\Micromouse\2019\Micromouse 2019\Micromouse2019.PcbDoc
+Date     : 2/5/2019
+Time     : 12:46:49 AM
+
+WARNING: Zero hole size multi-layer pad(s) detected
+   Pad U5-29(96.285mm,61.27mm) on Multi-Layer on Net GND
+
+WARNING: Multilayer Pads with 0 size Hole found
+   Pad U4-29(96.177mm,44.958mm) on Multi-Layer
+   Pad U5-29(96.285mm,61.27mm) on Multi-Layer
+
+Processing Rule : Clearance Constraint (Gap=0.127mm) (All),(All)
+Rule Violations :0
+
+Processing Rule : Short-Circuit Constraint (Allowed=No) (All),(All)
+   Violation between Short-Circuit Constraint: Between Via (94.888mm,43.671mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 94.888mm][Y = 43.671mm]
+   Violation between Short-Circuit Constraint: Between Via (94.888mm,46.262mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 94.888mm][Y = 46.262mm]
+   Violation between Short-Circuit Constraint: Between Via (94.888mm,47.557mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 94.888mm][Y = 47.557mm]
+   Violation between Short-Circuit Constraint: Between Via (96.183mm,43.671mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 96.183mm][Y = 43.671mm]
+   Violation between Short-Circuit Constraint: Between Via (96.183mm,46.262mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 96.183mm][Y = 46.262mm]
+   Violation between Short-Circuit Constraint: Between Via (96.183mm,47.557mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 96.183mm][Y = 47.557mm]
+   Violation between Short-Circuit Constraint: Between Via (94.888mm,41.055mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 94.888mm][Y = 41.058mm]
+   Violation between Short-Circuit Constraint: Between Via (94.888mm,42.376mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 94.888mm][Y = 42.376mm]
+   Violation between Short-Circuit Constraint: Between Via (94.888mm,44.967mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 94.888mm][Y = 44.967mm]
+   Violation between Short-Circuit Constraint: Between Via (94.888mm,48.853mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 94.888mm][Y = 48.853mm]
+   Violation between Short-Circuit Constraint: Between Via (96.183mm,41.055mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 96.183mm][Y = 41.058mm]
+   Violation between Short-Circuit Constraint: Between Via (96.183mm,42.376mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 96.183mm][Y = 42.376mm]
+   Violation between Short-Circuit Constraint: Between Via (96.183mm,44.967mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 96.183mm][Y = 44.967mm]
+   Violation between Short-Circuit Constraint: Between Via (96.183mm,48.853mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 96.183mm][Y = 48.853mm]
+   Violation between Short-Circuit Constraint: Between Via (97.479mm,43.671mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 97.476mm][Y = 43.671mm]
+   Violation between Short-Circuit Constraint: Between Via (97.479mm,46.262mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 97.476mm][Y = 46.262mm]
+   Violation between Short-Circuit Constraint: Between Via (97.479mm,47.557mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 97.476mm][Y = 47.557mm]
+   Violation between Short-Circuit Constraint: Between Via (97.479mm,41.055mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 97.476mm][Y = 41.058mm]
+   Violation between Short-Circuit Constraint: Between Via (97.479mm,42.376mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 97.476mm][Y = 42.376mm]
+   Violation between Short-Circuit Constraint: Between Via (97.479mm,44.967mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 97.476mm][Y = 44.967mm]
+   Violation between Short-Circuit Constraint: Between Via (97.479mm,48.853mm) from Top Layer to Bottom Layer And Pad U4-29(96.177mm,44.958mm) on Multi-Layer Location : [X = 97.476mm][Y = 48.853mm]
+Rule Violations :21
+
+Processing Rule : Un-Routed Net Constraint ( (All) )
+Rule Violations :0
+
+Processing Rule : Modified Polygon (Allow modified: No), (Allow shelved: No)
+Rule Violations :0
+
+Processing Rule : Width Constraint (Min=0.127mm) (Max=10mm) (Preferred=0.2mm) (All)
+Rule Violations :0
+
+Processing Rule : Power Plane Connect Rule(Relief Connect )(Expansion=0.508mm) (Conductor Width=0.254mm) (Air Gap=0.254mm) (Entries=4) (All)
+Rule Violations :0
+
+Processing Rule : Minimum Annular Ring (Minimum=0.076mm) (All)
+Rule Violations :0
+
+Processing Rule : Hole Size Constraint (Min=0.2mm) (Max=6.3mm) (All)
+Rule Violations :0
+
+Processing Rule : Hole To Hole Clearance (Gap=0.254mm) (All),(All)
+Rule Violations :0
+
+Processing Rule : Minimum Solder Mask Sliver (Gap=0mm) (All),(All)
+Rule Violations :0
+
+Processing Rule : Silk To Solder Mask (Clearance=0mm) (IsPad),(All)
+Rule Violations :0
+
+Processing Rule : Silk to Silk (Clearance=0mm) (All),(All)
+Rule Violations :0
+
+Processing Rule : Net Antennae (Tolerance=0mm) (All)
+   Violation between Net Antennae: Via (97.587mm,65.165mm) from Top Layer to Bottom Layer 
+   Violation between Net Antennae: Via (94.996mm,65.165mm) from Top Layer to Bottom Layer 
+   Violation between Net Antennae: Via (97.587mm,63.869mm) from Top Layer to Bottom Layer 
+   Violation between Net Antennae: Via (94.996mm,63.869mm) from Top Layer to Bottom Layer 
+   Violation between Net Antennae: Via (97.587mm,62.574mm) from Top Layer to Bottom Layer 
+   Violation between Net Antennae: Via (94.996mm,62.574mm) from Top Layer to Bottom Layer 
+   Violation between Net Antennae: Via (94.996mm,59.983mm) from Top Layer to Bottom Layer 
+   Violation between Net Antennae: Via (97.587mm,58.688mm) from Top Layer to Bottom Layer 
+   Violation between Net Antennae: Via (94.996mm,58.688mm) from Top Layer to Bottom Layer 
+   Violation between Net Antennae: Via (97.587mm,57.367mm) from Top Layer to Bottom Layer 
+   Violation between Net Antennae: Via (94.996mm,57.367mm) from Top Layer to Bottom Layer 
+   Violation between Net Antennae: Via (97.587mm,59.983mm) from Top Layer to Bottom Layer 
+Rule Violations :12
+
+Processing Rule : Height Constraint (Min=0mm) (Max=25.4mm) (Prefered=12.7mm) (All)
+Rule Violations :0
+
+
+Violations Detected : 33
+Waived Violations : 0
+Time Elapsed        : 00:00:04
