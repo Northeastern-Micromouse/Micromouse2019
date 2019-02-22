@@ -26,6 +26,19 @@ volatile register uint32_t __R31;
 #define CM_WKUP_CLKSTCTRL  (*((volatile unsigned int *)0x44E00400))
 #define CM_WKUP_ADC_TSC_CLKCTRL  (*((volatile unsigned int *)0x44E004BC))
 
+// ADC Function Prototypes
+void init_adc(void);
+uint16_t read_adc(uint8_t);
+
+// IMU Function Prototypes
+void read_accel_gyro(uint8_t, uint8_t*, uint8_t);
+void write_accel_gyro(uint8_t, uint8_t*, uint8_t);
+void read_mag(uint8_t, uint8_t*, uint8_t);
+void write_mag(uint8_t, uint8_t*, uint8_t);
+
+void init_mag(void);
+void init_accel_gyro(void);
+
 void check_ready(void);
 void read_imu(void);
 
@@ -35,15 +48,15 @@ void main(void)
 	CT_CFG.SYSCFG_bit.STANDBY_INIT = 0;
 	
 	// Wait for the host to trigger initialization
-	shared_memory[MEM_RDY] = 0;
-	while(shared_memory[MEM_RDY] == 0);
+	shared_memory[MEM_SENSORS_RDY] = 0;
+	while(shared_memory[MEM_SENSORS_RDY] == 0);
 	
 	init_mag();
 	init_accel_gyro();
 	init_adc();
 	
 	// Once the hose says it's ready, check for the IMU being ready every 100ms
-	while(shared_memory[MEM_RDY] == MEM_ARM_RDY_VALUE)
+	while(shared_memory[MEM_SENSORS_RDY] == MEM_SENSORS_ARM_RDY_VALUE)
 	{
 		check_ready();
 		__delay_cycles(20000000);
