@@ -7,15 +7,13 @@ class PID {
 	
 public:
 	PID(float kp, float ki, float kd);
-	void setSetpoint(float setpoint);
-	float update(float input, float dt);
+	float update(float error, float dt);
 	void reset();
 
 private:
 	float _ki;
 	float _kp;
 	float _kd;
-	float _setpoint;
 	float _previousError;
 	float _integralError;
 	

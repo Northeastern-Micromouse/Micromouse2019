@@ -1,14 +1,14 @@
 INCLUDE_DIR=../include
 CC=g++
-CFLAGS=-I$(INCLUDE_DIR)
+CFLAGS=-I$(INCLUDE_DIR) -lm
 
-ODIR=obj
+ODIR=.
 LDIR=../lib
 
-_DEPS=i2cDevice.h gpioDevice.h rgbLedDevice.h motors.h ledDriver.h robot.h PID.h reflSensor.h imu.h Direction.h AlgoRobot.h Cell.h Maze.h
+_DEPS=gpioDevice.h motors.h sensors.h robot.h PID.h 
 DEPS=$(patsubst %,$(INCLUDE_DIR)/%,$(_DEPS))
 
-_OBJ=i2cDevice.o main.o gpioDevice.o rgbLedDevice.o motors.o ledDriver.o PID.o robot.o reflSensor.o imu.o Maze.o Cell.o AlgoRobot.o
+_OBJ=main.o gpioDevice.o motors.o sensors.o PID.o robot.o
 OBJ=$(patsubst %,$(ODIR)/%,$(_OBJ))
 
 $(ODIR)/%.o: %.cc $(DEPS)

@@ -4,14 +4,33 @@
 
 namespace micromouse {
 	
-MotorSystem::MotorSystem(std::string pruFile,
+MotorSystem::MotorSystem(volatile unsigned int* pru_mem,
 							GpioDevice* leftDirPin,
 							GpioDevice* rightDirPin,
 							GpioDevice* enablePin):
-							_pruFile(pruFile),
+							_pru_mem(pru_mem),
 							_leftDirPin(leftDirPin),
 							_rightDirPin(rightDirPin),
-							_enablePin(enablePin) {}
+							_enablePin(enablePin) {
+								
+								
+							}
+							
+int MotorSystem::init(unsigned int timeout) {
+	this->_pru_mem[MEM_MOTORS_RDY] = MEM_MOTORS_ARM_RDY_VALUE;
+	while(this->_pru_mem[MEM_MOTORS_RDY] != MEM_MOTORS_RDY_VALUE)
+	{
+		if(timeout == 0)
+		{
+			return 1;
+		}
+		
+		usleep(1000);
+		timeout--;
+	}
+	
+	return 0;
+}
 			
 void MotorSystem::enable() {
 	this->_enablePin->setValue(0);
@@ -28,23 +47,6 @@ int MotorSystem::drive(unsigned int stepsLeft,
 						bool directionLeft,
 						bool directionRight,
 						unsigned int timeout) {
-							
-	unsigned char data[] = {(unsigned char)(stepsLeft & 0xFF), 
-							(unsigned char)((stepsLeft & 0x0000FF00) >> 8),
-							(unsigned char)((stepsLeft & 0x00FF0000) >> 16),
-							(unsigned char)((stepsLeft & 0xFF000000) >> 24),
-							(unsigned char)((periodLeft & 0x000000FF)),
-							(unsigned char)((periodLeft & 0x0000FF00) >> 8),
-							(unsigned char)((periodLeft & 0x00FF0000) >> 16),
-							(unsigned char)((periodLeft & 0xFF000000) >> 24),
-							(unsigned char)(stepsRight & 0xFF), 
-							(unsigned char)((stepsRight & 0x0000FF00) >> 8),
-							(unsigned char)((stepsRight & 0x00FF0000) >> 16),
-							(unsigned char)((stepsRight & 0xFF000000) >> 24),
-							(unsigned char)((periodRight & 0x000000FF)),
-							(unsigned char)((periodRight & 0x0000FF00) >> 8),
-							(unsigned char)((periodRight & 0x00FF0000) >> 16),
-							(unsigned char)((periodRight & 0xFF000000) >> 24)	};
 							
 	if(directionLeft) {
 		//std::cout << "left forward" << !MOTOR_INVERT_LEFT << std::endl;
@@ -64,31 +66,22 @@ int MotorSystem::drive(unsigned int stepsLeft,
 		this->_rightDirPin->setValue(MOTOR_INVERT_RIGHT);
 	}
 	
-	int pruFileFd = open(_pruFile.c_str(), O_RDWR);
-    if (pruFileFd < 0) {
-		std::cout << "Error opening PRU0 RPMSG file." << std::endl;
-        return pruFileFd;
-	}
+	this->_pru_mem[MEM_MOTORS_PERIOD_LEFT] = periodLeft;
+	this->_pru_mem[MEM_MOTORS_PERIOD_RIGHT] = periodRight;
+	this->_pru_mem[MEM_MOTORS_STEPS_LEFT] = stepsLeft;
+	this->_pru_mem[MEM_MOTORS_STEPS_RIGHT] = stepsRight;
 	
-	int error;
-	if((error = write(pruFileFd, data, 16)) != 16) {
-		close(pruFileFd);
-		std::cout << "Error writing PRU0 file, returned " << error << std::endl;
-		return error;
-	}
-	
-	while(timeout--) {
-		char j;
-		if(read(pruFileFd, &j, 1) == 1) {
-			close(pruFileFd);
-			return 0;
+	while(this->_pru_mem[MEM_MOTORS_STEPS_LEFT] > 0 || this->_pru_mem[MEM_MOTORS_STEPS_RIGHT] > 0) {
+		timeout--;
+		if(timeout == 0)
+		{
+			return 1;
 		}
 		
 		usleep(1000);
 	}
 	
-	close(pruFileFd);
-	return 1;
+	return 0;
 }
 
 }

@@ -7,6 +7,7 @@
 #define MOTOR_INVERT_LEFT 0
 #define MOTOR_INVERT_RIGHT 1
 
+#include "../../PRU/PRU0/pru_motorcontrol.h"
 #include "gpioDevice.h"
 
 namespace micromouse {
@@ -14,11 +15,12 @@ namespace micromouse {
 class MotorSystem {
 	
 public:
-	MotorSystem(std::string pruFile,
+	MotorSystem(volatile unsigned int* pru_mem,
 				GpioDevice* leftDirPin,
 				GpioDevice* rightDirPin,
 				GpioDevice* enablePin);
-				
+	
+	int init(unsigned int timeout);
 	void enable();
 	void disable();
 	int drive(unsigned int stepsLeft,
@@ -30,7 +32,7 @@ public:
 				unsigned int timeout);
 	
 private:
-	std::string _pruFile;
+	volatile unsigned int* _pru_mem;
 	GpioDevice* _leftDirPin;
 	GpioDevice* _rightDirPin;
 	GpioDevice* _enablePin;

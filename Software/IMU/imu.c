@@ -1,29 +1,30 @@
 /**
- * arm_sensor_test.c
- * Tests the ARM PRU sensor subsystem.
+ * imu.c
+ * Reads the IMU at a constant interval, filters the data, and writes the results into shared memory
  */
 
-#include <stdio.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/ipc.h> 
+#include <sys/shm.h> 
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <unistd.h>
 #include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include <signal.h>
-#include "pru_sensors.h"
+#include "../PRU/PRU1/pru_sensors.h"
 
 #define PRU_ADDR        0x4A300000      // Start of PRU memory Page 184 am335x TRM
 #define PRU_LEN         0x80000         // Length of PRU memory
 #define PRU0_DRAM       0x00000         // Offset to DRAM
 #define PRU1_DRAM       0x02000
-#define PRU_SHAREDMEM   0x10000         // Offset to shared memory
+#define PRU_SHAREDMEM_SENSORS   0x10000         // Offset to shared memory
 
 // System constants
-#define deltat 0.1f // sampling period in seconds (shown as 1 ms)
-#define gyroMeasError 3.14159265358979 * (5.0f / 180.0f) // gyroscope measurement error in rad/s (shown as 5 deg/s)
+#define deltat 0.023f // sampling period in seconds (shown as 1 ms)
+#define gyroMeasError 3.14159265358979 * (2.0f / 180.0f) // gyroscope measurement error in rad/s (shown as 5 deg/s)
 #define gyroMeasDrift 3.14159265358979 * (0.2f / 180.0f) // gyroscope measurement error in rad/s/s (shown as 0.2f deg/s/s)
 #define beta sqrt(3.0f / 4.0f) * gyroMeasError // compute beta
 #define zeta sqrt(3.0f / 4.0f) * gyroMeasDrift // compute zeta
@@ -36,11 +37,29 @@ float SEq_1 = 1, SEq_2 = 0, SEq_3 = 0, SEq_4 = 0; // estimated orientation quate
 float b_x = 1, b_z = 0; // reference direction of flux in earth frame
 float w_bx = 0, w_by = 0, w_bz = 0; // estimate gyroscope biases error
 
+// Sensor offsets
+int32_t accel_x_bias = 0;
+int32_t accel_y_bias = 0;
+int32_t accel_z_bias = 0;
+int32_t gyro_x_bias = 0;
+int32_t gyro_y_bias = 0;
+int32_t gyro_z_bias = 0;
+
 void filterUpdate(float,float,float,float,float,float,float,float,float);
 void sleep_until(struct timespec *ts, int delay);
 
-int main(int argc, char *argv[])
-{
+int main() 
+{ 
+    // ftok to generate unique key 
+    key_t key = ftok("imufile",65); 
+  
+    // shmget returns an identifier in shmid 
+    int shmid = shmget(key,1024,0666|IPC_CREAT); 
+  
+    // shmat to attach to shared memory 
+    float *data = (float*) shmat(shmid,(void*)0,0); 
+  
+	// Map PRU memory
 	unsigned int *pru_mem;       // Points to start of PRU memory.
 	int fd;
 
@@ -67,48 +86,33 @@ int main(int argc, char *argv[])
 	
 	printf("Sending initialization signal to PRU...\n");
 	
+	int timeout = 20000;
 	pru1_dram[MEM_SENSORS_RDY] = MEM_SENSORS_ARM_RDY_VALUE;
-	while(pru1_dram[MEM_SENSORS_RDY] != MEM_SENSORS_RDY_VALUE);
+	while(pru1_dram[MEM_SENSORS_RDY] != MEM_SENSORS_RDY_VALUE)
+	{
+		if(timeout == 0)
+		{
+			printf("ERROR: PRU not responding.\n");
+			return 1;
+		}
+		
+		timeout--;
+		
+		usleep(1000);
+	}
 	
 	printf("PRU Initialized.\n");
 	
-	struct timespec ts;
-	unsigned int delay = 20*1000*1000; // Note: Delay in ns
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-
-	// Lock memory to ensure no swapping is done.
-	if(mlockall(MCL_FUTURE|MCL_CURRENT))
-	{
-			fprintf(stderr,"WARNING: Failed to lock memory\n");
-	}
-
-	// Set our thread to real time priority
-	struct sched_param sp;
-	sp.sched_priority = 30;
-	if(pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp))
-	{
-			fprintf(stderr,"WARNING: Failed to set thread to real-time priority\n");
-	}
-
-	
-	/*
 	// Collect some samples for biasing
-	int32_t accel_x_bias = 0;
-	int32_t accel_y_bias = 0;
-	int32_t accel_z_bias = 0;
-	int32_t gyro_x_bias = 0;
-	int32_t gyro_y_bias = 0;
-	int32_t gyro_z_bias = 0;
 	
 	for(int i = 0; i < 128; i++)
 	{
-		accel_x_bias += (int32_t)pru1_dram[MEM_ACCEL_X];
-		accel_y_bias += (int32_t)pru1_dram[MEM_ACCEL_Y];
-		accel_z_bias += ((int32_t)pru1_dram[MEM_ACCEL_Z]) - 16384; // Testing is done at 1g, full scale is +-2g, subtract theoretical 1g
-		gyro_x_bias += (int32_t)pru1_dram[MEM_GYRO_X];
-		gyro_y_bias += (int32_t)pru1_dram[MEM_GYRO_Y];
-		gyro_z_bias += (int32_t)pru1_dram[MEM_GYRO_Z];
+		accel_x_bias += (int32_t)pru1_dram[MEM_SENSORS_ACCEL_X];
+		accel_y_bias += (int32_t)pru1_dram[MEM_SENSORS_ACCEL_Y];
+		accel_z_bias += ((int32_t)pru1_dram[MEM_SENSORS_ACCEL_Z]) - 16384; // Testing is done at 1g, full scale is +-2g, subtract theoretical 1g
+		gyro_x_bias += (int32_t)pru1_dram[MEM_SENSORS_GYRO_X];
+		gyro_y_bias += (int32_t)pru1_dram[MEM_SENSORS_GYRO_Y];
+		gyro_z_bias += (int32_t)pru1_dram[MEM_SENSORS_GYRO_Z];
 		usleep(50000);
 	}
 	
@@ -118,76 +122,65 @@ int main(int argc, char *argv[])
 	gyro_x_bias >>= 7;
 	gyro_y_bias >>= 7;
 	gyro_z_bias >>= 7;
-	*/
+	
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	// Lock memory to ensure no swapping is done.
+	if(mlockall(MCL_FUTURE|MCL_CURRENT))
+	{
+		fprintf(stderr,"WARNING: Failed to lock memory\n");
+	}
+
+	// Set our thread to real time priority
+	struct sched_param sp;
+	sp.sched_priority = 30;
+	if(pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp))
+	{
+		fprintf(stderr,"WARNING: Failed to set thread to real-time priority\n");
+	}
+	
 	while(1)
 	{
+		float accel_x = (float)(((int32_t)pru1_dram[MEM_SENSORS_ACCEL_X]) - accel_x_bias);
+		float accel_y = (float)(((int32_t)pru1_dram[MEM_SENSORS_ACCEL_Y]) - accel_y_bias);
+		float accel_z = (float)(((int32_t)pru1_dram[MEM_SENSORS_ACCEL_Z]) - accel_z_bias);
+		float gyro_x = (float)(((int32_t)pru1_dram[MEM_SENSORS_GYRO_X]) - gyro_x_bias);
+		float gyro_y = (float)(((int32_t)pru1_dram[MEM_SENSORS_GYRO_Y]) - gyro_y_bias);
+		float gyro_z = (float)(((int32_t)pru1_dram[MEM_SENSORS_GYRO_Z]) - gyro_z_bias);
+		float mag_x = (float)((int32_t)pru1_dram[MEM_SENSORS_MAG_X_C]);
+		float mag_y = (float)((int32_t)pru1_dram[MEM_SENSORS_MAG_Y_C]);
+		float mag_z = (float)((int32_t)pru1_dram[MEM_SENSORS_MAG_Z_C]);
 		
 		/*
 		printf(
-			"XL:%d %d %d\t G:%d %d %d\t M:%d %d %d\t A: %d %d %d %d %d %d %d\n",
-			pru1_dram[MEM_ACCEL_X],
-			pru1_dram[MEM_ACCEL_Y],
-			pru1_dram[MEM_ACCEL_Z],
-			pru1_dram[MEM_GYRO_X],
-			pru1_dram[MEM_GYRO_Y],
-			pru1_dram[MEM_GYRO_Z],
-			pru1_dram[MEM_MAG_X],
-			pru1_dram[MEM_MAG_Y],
-			pru1_dram[MEM_MAG_Z],
-			pru1_dram[MEM_AIN0],
-			pru1_dram[MEM_AIN1],
-			pru1_dram[MEM_AIN2],
-			pru1_dram[MEM_AIN3],
-			pru1_dram[MEM_AIN4],
-			pru1_dram[MEM_AIN5],
-			pru1_dram[MEM_AIN6]
-		);
-		*/
-		
-		/*
-		double yaw = 180.0/M_PI * atan2(mag_y, mag_x);
-		
-		printf(
-			"Raw:%d %d %d\t Corrected:%d %d %d Yaw:%3.1f\n",
-			pru1_dram[MEM_MAG_X],
-			pru1_dram[MEM_MAG_Y],
-			pru1_dram[MEM_MAG_Z],
-			pru1_dram[MEM_MAG_X_C],
-			pru1_dram[MEM_MAG_Y_C],
-			pru1_dram[MEM_MAG_Z_C],
-			yaw
+			"XL:%3.1f %3.1f %3.1f\t G:%3.1f %3.1f %3.1f\t Mag:%3.1f %3.1f %3.1f\t",
+			accel_x,
+			accel_y,
+			accel_z,
+			gyro_x,
+			gyro_y,
+			gyro_z,
+			mag_x,
+			mag_y,
+			mag_z
 			);
 		*/
 		/*
 		printf(
-			"XL:%d %d %d\t G:%d %d %d\t XL_C:%d %d %d\t G_C:%d %d %d\t, Mag:%d %d %d\t",
-			pru1_dram[MEM_ACCEL_X],
-			pru1_dram[MEM_ACCEL_Y],
-			pru1_dram[MEM_ACCEL_Z],
-			pru1_dram[MEM_GYRO_X],
-			pru1_dram[MEM_GYRO_Y],
-			pru1_dram[MEM_GYRO_Z],
-			((int32_t)pru1_dram[MEM_ACCEL_X]) - accel_x_bias,
-			((int32_t)pru1_dram[MEM_ACCEL_Y]) - accel_y_bias,
-			((int32_t)pru1_dram[MEM_ACCEL_Z]) - accel_z_bias,
-			((int32_t)pru1_dram[MEM_GYRO_X]) - gyro_x_bias,
-			((int32_t)pru1_dram[MEM_GYRO_Y]) - gyro_y_bias,
-			((int32_t)pru1_dram[MEM_GYRO_Z]) - gyro_z_bias,
-			((int32_t)pru1_dram[MEM_MAG_X_C]),
-			((int32_t)pru1_dram[MEM_MAG_Y_C]),
-			((int32_t)pru1_dram[MEM_MAG_Z_C])
+			"XL:%3.1f %d %d\t G:%d %d %d\t Mag:%d %d %d\t",
+			(float)((int32_t)pru1_dram[MEM_SENSORS_ACCEL_X] - accel_x_bias),
+			(int32_t)pru1_dram[MEM_SENSORS_ACCEL_Y],
+			(int32_t)pru1_dram[MEM_SENSORS_ACCEL_Z],
+			(int32_t)pru1_dram[MEM_SENSORS_GYRO_X],
+			(int32_t)pru1_dram[MEM_SENSORS_GYRO_Y],
+			(int32_t)pru1_dram[MEM_SENSORS_GYRO_Z],
+			(int32_t)pru1_dram[MEM_SENSORS_MAG_X_C],
+			(int32_t)pru1_dram[MEM_SENSORS_MAG_Y_C],
+			(int32_t)pru1_dram[MEM_SENSORS_MAG_Z_C]
 			);
 		*/
-		float accel_x = (float)(((int32_t)pru1_dram[MEM_ACCEL_X]) - accel_x_bias);
-		float accel_y = (float)(((int32_t)pru1_dram[MEM_ACCEL_Y]) - accel_y_bias);
-		float accel_z = (float)(((int32_t)pru1_dram[MEM_ACCEL_Z]) - accel_z_bias);
-		float gyro_x = (float)(((int32_t)pru1_dram[MEM_GYRO_X]) - gyro_x_bias);
-		float gyro_y = (float)(((int32_t)pru1_dram[MEM_GYRO_Y]) - gyro_y_bias);
-		float gyro_z = (float)(((int32_t)pru1_dram[MEM_GYRO_Z]) - gyro_z_bias);
-		float mag_x = (float)((int32_t)pru1_dram[MEM_MAG_X_C]);
-		float mag_y = (float)((int32_t)pru1_dram[MEM_MAG_Y_C]);
-		float mag_z = (float)((int32_t)pru1_dram[MEM_MAG_Z_C]);
-		
 		gyro_x *= (500.0/32768.0)*(M_PI/180.0);
 		gyro_y *= (500.0/32768.0)*(M_PI/180.0);
 		gyro_z *= (500.0/32768.0)*(M_PI/180.0);
@@ -199,46 +192,24 @@ int main(int argc, char *argv[])
 		float pitch = asin(2*(SEq_1*SEq_3 - SEq_4*SEq_2));
 		float yaw = atan2(2*(SEq_1*SEq_4 + SEq_2*SEq_3), 1 - 2*(SEq_3*SEq_3 + SEq_4*SEq_4));
 		
-		roll *= 180.0/M_PI;
-		pitch *= 180.0/M_PI;
-		yaw *= 180.0/M_PI;
+		data[0] = roll*180.0/M_PI;
+		data[1] = pitch*180.0/M_PI;
+		data[2] = yaw*180.0/M_PI;
 		
-		printf("Roll:%3.1f\tPitch:%3.1f\tYaw:%3.1f\n", roll, pitch, yaw);
+		//printf("%3.1f\n", yaw*180.0/M_PI);
 		
-		/*
-		float q0 = *((float*)(&(pru_dram[MEM_Q0])));
-		float q1 = *((float*)(&(pru_dram[MEM_Q1])));
-		float q2 = *((float*)(&(pru_dram[MEM_Q2])));
-		float q3 = *((float*)(&(pru_dram[MEM_Q3])));
-		
-		// https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
-		float roll = atan2(2*(q0*q1 + q2*q3), 1 - 2*(q1*q1 + q2*q2));
-		float pitch = asin(2*(q0*q2 - q3*q1));
-		float yaw = atan2(2*(q0*q3 + q1*q2), 1 - 2*(q2*q2 + q3*q3));
-		
-		roll *= 180.0/M_PI;
-		pitch *= 180.0/M_PI;
-		yaw *= 180.0/M_PI;
-		
-		printf("Roll:%3.1f\tPitch:%3.1f\tYaw:%3.1f\n", roll, pitch, yaw);
-		*/
-		sleep_until(&ts,delay);
+		sleep_until(&ts,20*1000*1000); // Note: Delay in ns
 	}
 	
-	if(munmap(pru_mem, PRU_LEN))
-	{
-		printf("munmap failed\n");
-	} 
-	else
-	{
-		printf("munmap succeeded\n");
-	}
-
-	return 0;
-}
+      
+    //detach from shared memory  
+    shmdt(data); 
+  
+    return 0; 
+} 
 
 // Adds "delay" nanoseconds to timespecs and sleeps until that time
-static void sleep_until(struct timespec *ts, int delay)
+void sleep_until(struct timespec *ts, int delay)
 {
         
         ts->tv_nsec += delay;

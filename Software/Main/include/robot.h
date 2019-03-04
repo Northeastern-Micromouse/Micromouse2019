@@ -6,12 +6,9 @@
 #include <math.h>
 #include <unistd.h>
 #include "gpioDevice.h"
-#include "ledDriver.h"
 #include "motors.h"
-#include "rgbLedDevice.h"
 #include "PID.h"
-#include "reflSensor.h"
-#include "imu.h"
+#include "sensors.h"
 
 // PRU memory address and offsets
 #define PRU_ADDR        0x4A300000      // Start of PRU memory Page 184 am335x TRM
@@ -27,18 +24,21 @@
 #define DRIVE_DIVISIONS 15
 
 // Hardware constants
-#define MICROSTEPPING			16
+#define MICROSTEPPING			8
 #define RADIANS_PER_STEP 		((0.9 / MICROSTEPPING) * M_PI/180.0)
 #define WHEEL_RADIUS 			30.0
 #define DISTANCE_PER_STEP		(RADIANS_PER_STEP*WHEEL_RADIUS)
 
-#define ROBOT_WIDTH 			110.0
+#define ROBOT_WIDTH 			77.0
 #define TURN_LENGTH				(M_PI/2.0 * ROBOT_WIDTH/2.0)
 #define TURN_STEPS(n)			(int)(fabs(n) * TURN_LENGTH / DISTANCE_PER_STEP)
 
-#define WALL_THRESHOLD				80.0 
-#define PROPER_FRONT_WALL_DISTANCE	30
-#define PROPER_SIDE_WALL_DISTANCE	30
+#define LEFT_WALL_THRESHOLD			3600
+#define RIGHT_WALL_THRESHOLD		3600
+#define FRONT_WALL_THRESHOLD		1600
+#define PROPER_FRONT_WALL_DISTANCE	1490
+#define PROPER_LEFT_WALL_DISTANCE	2630
+#define PROPER_RIGHT_WALL_DISTANCE	2750
 #define WALL_CORRECT_SPEED			100
 
 #define IMU_TOLERANCE				1
@@ -55,27 +55,34 @@ public:
 	void disableMotors();
 	int pid_drive(float distance, float speed);
 	int turn(int amt, float speed);
-	int getLeftDistance(float* distance);
-	int getRightDistance(float* distance);
-	int getFrontDistance(float* distance);
-	int checkWallFront(bool* result);
-	int checkWallRight(bool* result);
-	int checkWallLeft(bool* result);
-	int getHeading(float* heading);
-	int frontWallCorrect();
+	float getLeftDistance(void);
+	float getRightDistance(void);
+	float getFrontDistance(void);
+	bool checkWallFront(void);
+	bool checkWallRight(void);
+	bool checkWallLeft(void);
+	float getHeading(void);
+	int frontWallCorrect(void);
+	bool readButton1(void);
+	bool readButton2(void);
+	
+	SensorSystem* getSensorSystem(void);
+	MotorSystem* getMotorSystem(void);
 
 private:
 	
-	unsigned int *_pru_mem;       // Points to start of PRU memory.
+	volatile unsigned int *_pru_mem;       // Points to start of PRU memory.
 	
 	micromouse::MotorSystem* _motorSystem;
 	micromouse::SensorSystem* _sensorSystem;
 	
+	micromouse::GpioDevice* _button1;
+	micromouse::GpioDevice* _button2;
+	
 	float _driveKp;
 	float _driveKi;
 	float _driveKd;
-	
-	//micromouse::IMU* _imu;
+
 	float _headingTarget;
 	float _driveHeadingCoefficient;
 	

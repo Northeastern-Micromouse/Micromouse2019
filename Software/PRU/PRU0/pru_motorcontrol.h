@@ -10,9 +10,9 @@
 #define MEM_MOTORS_ARM_RDY_VALUE	0x01 // Value the ARM will write when ready
 #define MEM_MOTORS_RDY_VALUE		0x02 // Value the PRU will respond with when ready
 
-#define MEM_STEPS_LEFT		0x01
-#define MEM_STEPS_RIGHT		0x02
-#define MEM_PERIOD_LEFT		0x03
-#define MEM_PERIOD_RIGHT	0x04
+#define MEM_MOTORS_STEPS_LEFT		0x01
+#define MEM_MOTORS_STEPS_RIGHT		0x02
+#define MEM_MOTORS_PERIOD_LEFT		0x03
+#define MEM_MOTORS_PERIOD_RIGHT		0x04
 
 #endif

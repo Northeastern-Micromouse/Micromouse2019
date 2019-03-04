@@ -9,7 +9,7 @@
 # PRU_CGT environment variable points to the TI PRU compiler directory.
 # PRU_SUPPORT points to pru-software-support-package.
 # GEN_DIR points to where to put the generated files.
-TARGET=motorcontrol
+TARGET=pru_motorcontrol
 PRUN=0
 PRU_CGT:=/usr/share/ti/cgt-pru
 PRU_SUPPORT:=/usr/lib/ti/pru-software-support-package

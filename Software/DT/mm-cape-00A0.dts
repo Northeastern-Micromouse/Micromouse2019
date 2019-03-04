@@ -72,9 +72,9 @@
 			
 			mm_gpio_pins: mm_gpio_pins {
 				pinctrl-single,pins = <
-					0x044 0x37 /* P9_23 - gpmc_a1   -> BUT1      (MODE7 | INPUT | PULLUP) */
-					0x184 0x37 /* P9_24 - uart1_txd -> BUT2      (MODE7 | INPUT | PULLUP) */ 
-					0x040 0x2F /* P9_15 - gpmc_a0   -> BMS_ALERT (MODE7 | INPUT | NO PULL) */
+					0x044 0x37 /* P9_23 - gpmc_a1       -> BUT1      (MODE7 | INPUT | PULLUP) */
+					0x1AC 0x37 /* P9_25 - mcasp0_ahclkx -> BUT2      (MODE7 | INPUT | PULLUP) */ 
+					0x040 0x2F /* P9_15 - gpmc_a0       -> BMS_ALERT (MODE7 | INPUT | NO PULL) */
 				>;
 			};
 		};

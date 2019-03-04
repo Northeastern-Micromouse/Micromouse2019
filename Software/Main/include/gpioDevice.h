@@ -15,6 +15,7 @@ class GpioDevice {
 public:
     GpioDevice(int pin);
     ~GpioDevice();
+	void unexport(void);
 
     void setDirection(int direction);
     void setValue(int value);
@@ -25,7 +26,6 @@ public:
 private:
     int pin;
     int direction;
-    int value;
 
 };
 

@@ -11,8 +11,6 @@
 #include <rsc_types.h>
 #include "resource_table_empty.h"
 #include "pru_sensors.h"
-#include "imu.h"
-#include "adc.h"
 
 #define PRU1_DRAM	0x00000	// Offset to DRAM
 // Skip the first 0x200 byte of DRAM since the Makefile allocates
@@ -29,6 +27,7 @@ volatile register uint32_t __R31;
 // ADC Function Prototypes
 void init_adc(void);
 uint16_t read_adc(uint8_t);
+void update_distance(void);
 
 // IMU Function Prototypes
 void read_accel_gyro(uint8_t, uint8_t*, uint8_t);
@@ -55,6 +54,13 @@ void main(void)
 	init_accel_gyro();
 	init_adc();
 	
+	int i = 0;
+	for(; i < 50; i++)
+	{
+		read_imu();
+		__delay_cycles(20000000);
+	}
+	
 	// Once the hose says it's ready, check for the IMU being ready every 100ms
 	while(shared_memory[MEM_SENSORS_RDY] == MEM_SENSORS_ARM_RDY_VALUE)
 	{
@@ -64,14 +70,17 @@ void main(void)
 	
 	while(1)
 	{
-		shared_memory[MEM_AIN0] = read_adc(0);
-		shared_memory[MEM_AIN1] = read_adc(1);
-		shared_memory[MEM_AIN2] = read_adc(2);
-		shared_memory[MEM_AIN3] = read_adc(3);
-		shared_memory[MEM_AIN4] = read_adc(4);
-		shared_memory[MEM_AIN5] = read_adc(5);
-		shared_memory[MEM_AIN6] = read_adc(6);
+		shared_memory[MEM_SENSORS_AIN0] = read_adc(0);
+		shared_memory[MEM_SENSORS_AIN1] = read_adc(1);
+		shared_memory[MEM_SENSORS_AIN2] = read_adc(2);
+		shared_memory[MEM_SENSORS_AIN3] = read_adc(3);
+		shared_memory[MEM_SENSORS_AIN4] = read_adc(4);
+		shared_memory[MEM_SENSORS_AIN5] = read_adc(5);
+		shared_memory[MEM_SENSORS_AIN6] = read_adc(6);
+		
 		read_imu();
+		
+		__delay_cycles(3000000); // wait 15ms
 	}
 }
 
@@ -85,7 +94,7 @@ void check_ready()
 	
 	if(mag_ready == WHO_AM_I_M_RSP && accel_gyro_ready == WHO_AM_I_AG_RSP)
 	{
-		shared_memory[MEM_RDY] = MEM_RDY_VALUE;
+		shared_memory[MEM_SENSORS_RDY] = MEM_SENSORS_RDY_VALUE;
 	}
 }
 
@@ -101,39 +110,62 @@ void read_imu()
 	
 	int16_t mag_x = mag_data[1];
 	mag_x = (mag_x << 8) | mag_data[0];
-	shared_memory[MEM_MAG_X] = mag_x;
+	shared_memory[MEM_SENSORS_MAG_X] = mag_x;
 	
 	int16_t mag_y = mag_data[3];
 	mag_y = (mag_y << 8) | mag_data[2];
-	shared_memory[MEM_MAG_Y] = mag_y;
+	shared_memory[MEM_SENSORS_MAG_Y] = mag_y;
 	
 	int16_t mag_z = mag_data[5];
 	mag_z = (mag_z << 8) | mag_data[4];
-	shared_memory[MEM_MAG_Z] = mag_z;
+	shared_memory[MEM_SENSORS_MAG_Z] = mag_z;
 	
 	int16_t accel_x = accel_data[1];
 	accel_x = (accel_x << 8) | accel_data[0];
-	shared_memory[MEM_ACCEL_X] = accel_x;
+	shared_memory[MEM_SENSORS_ACCEL_X] = accel_x;
 	
 	int16_t accel_y = accel_data[3];
 	accel_y = (accel_y << 8) | accel_data[2];
-	shared_memory[MEM_ACCEL_Y] = accel_y;
+	shared_memory[MEM_SENSORS_ACCEL_Y] = accel_y;
 	
 	int16_t accel_z = accel_data[5];
 	accel_z = (accel_z << 8) | accel_data[4];
-	shared_memory[MEM_ACCEL_Z] = accel_z;
+	shared_memory[MEM_SENSORS_ACCEL_Z] = accel_z;
 	
 	int16_t gyro_x = gyro_data[1];
 	gyro_x = (gyro_x << 8) | gyro_data[0];
-	shared_memory[MEM_GYRO_X] = gyro_x;
+	shared_memory[MEM_SENSORS_GYRO_X] = gyro_x;
 	
 	int16_t gyro_y = gyro_data[3];
 	gyro_y = (gyro_y << 8) | gyro_data[2];
-	shared_memory[MEM_GYRO_Y] = gyro_y;
+	shared_memory[MEM_SENSORS_GYRO_Y] = gyro_y;
 	
 	int16_t gyro_z = gyro_data[5];
 	gyro_z = (gyro_z << 8) | gyro_data[4];
-	shared_memory[MEM_GYRO_Z] = gyro_z;
+	shared_memory[MEM_SENSORS_GYRO_Z] = gyro_z;
+	
+	mag_x -= IMU_MAG_B_X;
+	mag_y -= IMU_MAG_B_Y;
+	mag_z -= IMU_MAG_B_Z;
+	
+	// Apply the calibration transformation
+	float mag_corrected_x = IMU_MAG_AINV_11*((float)mag_x) + 
+						    IMU_MAG_AINV_12*((float)mag_y) + 
+						    IMU_MAG_AINV_13*((float)mag_z);
+	
+	shared_memory[MEM_SENSORS_MAG_X_C] = (int32_t)mag_corrected_x;
+										   
+	float mag_corrected_y = IMU_MAG_AINV_21*((float)mag_x) + 
+						    IMU_MAG_AINV_22*((float)mag_y) + 
+						    IMU_MAG_AINV_23*((float)mag_z);
+										   
+	shared_memory[MEM_SENSORS_MAG_Y_C] = (int32_t)mag_corrected_y;
+										
+	float mag_corrected_z = IMU_MAG_AINV_31*((float)mag_x) + 
+						    IMU_MAG_AINV_32*((float)mag_y) + 
+							IMU_MAG_AINV_33*((float)mag_z);
+	
+	shared_memory[MEM_SENSORS_MAG_Z_C] = (int32_t)mag_corrected_z;
 }
 
 /**
@@ -294,6 +326,9 @@ void read_mag(uint8_t addr, uint8_t* data, uint8_t len)
 	IMU_SCK_HIGH();
 	IMU_SCK_DELAY();
 	
+	// Signal to auto-increment the read address
+	addr |= (1 << 6);
+	
 	// Shift out the remaining 7 bits of the address, MSB first
 	for(bit_count = 0; bit_count < 7; bit_count++)
 	{
@@ -413,7 +448,7 @@ void init_accel_gyro()
 	write_accel_gyro(CTRL_REG8, &ctrl_reg8, 1);
 	__delay_cycles(200000000);
 	
-	// FS_G = 01 = 0x01   (500 dps range) 
+	// FS_G = 01 = 0x01   (500 dps range, 00 = 245dps, 11 = 2000dps) 
 	// ODR_G = 110 = 0x06 (952Hz ODR, 100Hz LPF cutoff) 
 	// BW_G = 11 = 0x03   (100Hz LPF cutoff)
 	uint8_t ctrl_reg1_g = (0x01 << 3) | (0x6 << 5) | 0x03;
@@ -439,21 +474,20 @@ void init_mag()
 	write_mag(CTRL_REG2_M, &ctrl_reg2_m, 1);
 	__delay_cycles(200000000);
 	
-	// Write the calibration offset
 	/*
+	// Write the calibration offset
 	uint8_t offsets[] = 
 	{
-		shared_memory[MEM_MAG_OFFSET_X] & 0xFF,
-		(shared_memory[MEM_MAG_OFFSET_X] >> 8) & 0xFF,
-		shared_memory[MEM_MAG_OFFSET_Y] & 0xFF,
-		(shared_memory[MEM_MAG_OFFSET_Y] >> 8) & 0xFF,
-		shared_memory[MEM_MAG_OFFSET_Z] & 0xFF,
-		(shared_memory[MEM_MAG_OFFSET_Z] >> 8) & 0xFF
+		IMU_MAG_B_X & 0xFF,
+		(IMU_MAG_B_X >> 8) & 0xFF,
+		IMU_MAG_B_Y & 0xFF,
+		(IMU_MAG_B_Y >> 8) & 0xFF,
+		IMU_MAG_B_Z & 0xFF,
+		(IMU_MAG_B_Z >> 8) & 0xFF
 	};
-	*/
-	uint8_t offsets[6] = {0}; 
 	
 	write_mag(OFFSET_X_REG_L_M, offsets, 6);
+	*/
 	
 	// OM = 11 = 0x03 (XY ultra-high performance)
 	// DO = 111 = 0x07 (80Hz ODR)
@@ -613,19 +647,26 @@ uint16_t read_adc(uint8_t channel)
     switch (channel) {
 		case 0:
 		  ADC_TSC.STEPENABLE_bit.STEP1 = 1;
+		  break;
 		case 1:
 		  ADC_TSC.STEPENABLE_bit.STEP2 = 1;
+		  break;
 		case 2:
 		  ADC_TSC.STEPENABLE_bit.STEP3 = 1;
+		  break;
 		case 3:
 		  ADC_TSC.STEPENABLE_bit.STEP4 = 1;
+		  break;
 		case 4:
 		  ADC_TSC.STEPENABLE_bit.STEP5 = 1;
+		  break;
 		case 5:
 		  ADC_TSC.STEPENABLE_bit.STEP6 = 1;
+		  break;
 		case 6:
 		  ADC_TSC.STEPENABLE_bit.STEP7 = 1;
-		default :
+		  break;
+		default:
 			break;
     }
 

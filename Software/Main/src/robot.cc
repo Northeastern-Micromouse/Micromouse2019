@@ -14,9 +14,7 @@ float DeltaAngle(float current, float target)
 }
 	
 int Robot::init()
-{
-	std::cout << "Initializing robot..." << std::endl;
-	
+{	
 	/** Map PRU memory space **/
 	int fd = open("/dev/mem", O_RDWR | O_SYNC);
 	
@@ -26,109 +24,74 @@ int Robot::init()
 		return 1;
 	}
 	
-	this->_pru_mem = mmap(0, PRU_LEN, PROT_READ | PROT_WRITE, MAP_SHARED, fd, PRU_ADDR);
+	this->_pru_mem = (unsigned int*)mmap(0, PRU_LEN, PROT_READ | PROT_WRITE, MAP_SHARED, fd, PRU_ADDR);
 	
-	if (this->pru_mem == MAP_FAILED)
+	if (this->_pru_mem == MAP_FAILED)
 	{
-		std::cout << "ERROR: could not map memory.\n\n" << std::endl;
+		std::cout << "ERROR: could not map PRU memory.\n\n" << std::endl;
 		return 1;
 	}
 	close(fd);
 	
-	unsigned int *pru0_dram = pru_mem + PRU0_DRAM/4 + 0x200/4;   // Points to 0x200 of PRU0 memory
-	unsigned int *pru1_dram = pru_mem + PRU1_DRAM/4 + 0x200/4;   // Points to 0x200 of PRU1 memory
+	volatile unsigned int *pru0_dram = this->_pru_mem + PRU0_DRAM/4 + 0x200/4;   // Points to 0x200 of PRU0 memory
+	volatile unsigned int *pru1_dram = this->_pru_mem + PRU1_DRAM/4 + 0x200/4;   // Points to 0x200 of PRU1 memory
 	
 	/** Initialize drive system **/
-	micromouse::GpioDevice* leftMotorDirPin = new GpioDevice(112);
+	micromouse::GpioDevice* leftMotorDirPin = new GpioDevice(111);
 	micromouse::GpioDevice* rightMotorDirPin = new GpioDevice(113);
-	micromouse::GpioDevice* enableMotorPin = new GpioDevice(114);
+	micromouse::GpioDevice* enableMotorPin = new GpioDevice(115);
 	
 	leftMotorDirPin->setDirection(GPIO_OUT);
 	rightMotorDirPin->setDirection(GPIO_OUT);
 	enableMotorPin->setDirection(GPIO_OUT);
 	
-	this->_motorSystem = new micromouse::MotorSystem("/dev/rpmsg_pru30",  
+	this->_motorSystem = new micromouse::MotorSystem(pru0_dram,  
 													leftMotorDirPin, 
 													rightMotorDirPin, 
 													enableMotorPin);
+													
+	this->_motorSystem->disable();
+	
+	if(this->_motorSystem->init(10000))
+	{
+		std::cout << "ERROR: Drive system initialization timed out." << std::endl;
+		return 1;
+	}
 	
 	std::cout << "Initialized drive system." << std::endl;
 	
 	/** Initialize BMS **/
 	
 	/** Initialize sensor subsystem **/
-	
-	this->_leftFrontFacing = new
-		micromouse::ReflSensor("/home/debian/sensors/sensor3",
-								ledDriver,
-								3);
-	
-	this->_rightFrontFacing = new
-		micromouse::ReflSensor("/home/debian/sensors/sensor5",
-								ledDriver,
-								5);
-								
-	this->_frontLeftFacing = new
-		micromouse::ReflSensor("/home/debian/sensors/sensor2",
-								ledDriver,
-								2);
-								
-	this->_rearLeftFacing = new
-		micromouse::ReflSensor("/home/debian/sensors/sensor0",
-								ledDriver,
-								0);
-								
-	this->_frontRightFacing = new
-		micromouse::ReflSensor("/home/debian/sensors/sensor1",
-								ledDriver,
-								1);
-								
-	this->_rearRightFacing = new
-		micromouse::ReflSensor("/home/debian/sensors/sensor4",
-								ledDriver,
-								4);
-	
-	std::cout << "Initialized reflectance sensors." << std::endl;
-	
-	/*
-	micromouse::I2cDevice* i2c2 = new I2cDevice(2);
-	this->_imu = new micromouse::IMU(i2c2, BNO055_ADDRESS_A);
-	
-	error = this->_imu->Initialize();
-	if(error) {
-		std::cout << "Error initializing IMU." << std::endl;
-		return -1;
+	this->_sensorSystem = new micromouse::SensorSystem(pru1_dram);
+	if(this->_sensorSystem->init())
+	{
+		std::cout << "ERROR: Sensor system initialization error." << std::endl;
 	}
 	
-	std::cout << "Initialized IMU." << std::endl;
-	*/
-	this->getHeading(&(this->_headingTarget));
-	
+	this->_headingTarget = this->getHeading();
 	std::cout << "Set heading target to " << this->_headingTarget << std::endl;
 	
+	/** Initialize button reading **/
+	this->_button1 = new GpioDevice(49);
+	this->_button2 = new GpioDevice(117);
+	this->_button1->setDirection(GPIO_IN);
+	this->_button2->setDirection(GPIO_IN);
+	
+	/** Load PID gains **/
 	std::ifstream pidFile;
 	pidFile.open(PID_GAINS_PATH);
 	pidFile >> this->_driveKp;
 	pidFile >> this->_driveKi;
 	pidFile >> this->_driveKd;
-	pidFile >> this->_driveHeadingCoefficient;
 	pidFile.close();
 	
 	std::cout << "Loaded PID gains: ";
 	std::cout << this->_driveKp << " ";
 	std::cout << this->_driveKi << " ";
 	std::cout << this->_driveKd << std::endl;
-	std::cout << "Loaded heading coefficient: " << this->_driveHeadingCoefficient << std::endl;
-	
-	float distance = 1000;
-	while(distance > 50) {
-		getFrontDistance(&distance);
-	}
-	
-	this->_led1 = new micromouse::RgbLedDevice(64, 47, 65);
-	this->_led1->setRgb(0, 0, 1);
-	
-	usleep(5000000);
+
+	usleep(1000000);
 }
 
 void Robot::enableMotors() {
@@ -139,30 +102,24 @@ void Robot::disableMotors() {
 	this->_motorSystem->disable();
 }
 
-int Robot::getLeftDistance(float* distance) {
-	*distance = (this->_frontLeftFacing->getDistance() +
-				this->_rearLeftFacing->getDistance())/2.0;
-	
-	return 0;
+float Robot::getLeftDistance() {
+	return (this->_sensorSystem->getLeftDistanceFront(getHeading()) + 
+			this->_sensorSystem->getLeftDistanceRear(getHeading())) / 2.0;
 }
 
-int Robot::getRightDistance(float* distance) {
-	*distance = (this->_frontRightFacing->getDistance() +
-				this->_rearRightFacing->getDistance())/2.0;
-	
-	return 0;
+float Robot::getRightDistance() {
+	return (this->_sensorSystem->getRightDistanceFront(getHeading()) + 
+			this->_sensorSystem->getRightDistanceRear(getHeading())) / 2.0;
 }
 
-int Robot::getFrontDistance(float* distance) {
-	*distance = (this->_leftFrontFacing->getDistance() +
-				this->_rightFrontFacing->getDistance())/2.0;
-	
-	return 0;
+float Robot::getFrontDistance() {
+	return (this->_sensorSystem->getFrontDistanceRight(getHeading()) + 
+			this->_sensorSystem->getFrontDistanceLeft(getHeading())) / 2.0;
 }
 
-int Robot::frontWallCorrect() {
-	float distance;
-	this->getFrontDistance(&distance);
+int Robot::frontWallCorrect()
+{
+	float distance = getFrontDistance();
 	int steps = (int)((distance - PROPER_FRONT_WALL_DISTANCE) / DISTANCE_PER_STEP);
 	int period = (int)((DISTANCE_PER_STEP * 1000000)/ WALL_CORRECT_SPEED);
 	
@@ -170,7 +127,8 @@ int Robot::frontWallCorrect() {
 	
 	//std::cout << "Correcting by " << (distance - PROPER_FRONT_WALL_DISTANCE) << std::endl;
 	
-	if(steps < 0) {
+	if(steps < 0)
+	{
 		steps = -steps;
 		direction = MOTOR_BACKWARD;
 	}
@@ -186,101 +144,69 @@ int Robot::frontWallCorrect() {
 	usleep(500000);
 }
 
-int Robot::pid_drive(float distance, float speed) {
+int Robot::pid_drive(float distance, float speed)
+{
 	
 	PID pid(this->_driveKp, this->_driveKi, this->_driveKd);
 	pid.reset();
-	pid.setSetpoint(0);
 	
 	float heading;
 	for(int i = 0; i < DRIVE_DIVISIONS; i++) {
 		
-		int ret;
-		bool wall;
-		ret = this->checkWallFront(&wall);
-		if(ret) {
-			std::cout << "Error checking for wall." << std::endl;
-		}
-		if(wall) {
-			return this->frontWallCorrect();
+		if(checkWallFront())
+		{
+			//std::cout << "Correcting..." << std::endl;
+			//return this->frontWallCorrect();
 		}
 		
-		float temp;
-		ret = this->getHeading(&temp);//this->_imu->GetHeading(heading);
-		if(ret) {
-			std::cout << "Error getting heading." << std::endl;
-			//return ret;
-		}
-		else {
-			heading = temp;
-		}
+		float heading = this->getHeading();
 		
-		float error = this->_driveHeadingCoefficient * 
-						DeltaAngle(this->_headingTarget, heading);
-		std::cout << error << " ";
+		// Determine what information we can gather
+		bool leftWall = checkWallLeft();
+		bool rightWall = checkWallRight();
 		
-		// Determine if we have enough walls to calculate error
-		bool leftWall = 0, rightWall = 0;
-		if(this->checkWallLeft(&leftWall) || 
-			this->checkWallRight(&rightWall)) {
-			std::cout << "Error checking wall." << std::endl; 
-			return -1;
+		float error = 0;
+		float leftDistance = getLeftDistance();
+		float rightDistance = getRightDistance();
+		
+		if(leftWall && rightWall)
+		{
+			error = rightDistance - leftDistance;
 		}
 		
-		if(leftWall && rightWall) {
-			float leftSensorDistance, rightSensorDistance;
-			if(this->getLeftDistance(&leftSensorDistance) || 
-				this->getRightDistance(&rightSensorDistance)) {
-				std::cout << "Error getting distance." << std::endl;
-				return -1;
-			}
-			
-			std::cout << (leftSensorDistance - rightSensorDistance) << std::endl;
-			error += (leftSensorDistance - rightSensorDistance);
-		}
-		
-		else if(leftWall) {
+		else if(leftWall)
+		{
 			std::cout << "Warning: only left wall detected" << std::endl;
-			float distance;
-			int e;
-			if(e = this->getLeftDistance(&distance)) {
-				return e;
-			}
-			
-			std::cout << -(PROPER_SIDE_WALL_DISTANCE - distance) << std::endl;
-			error += -(PROPER_SIDE_WALL_DISTANCE - distance);
+			error = PROPER_LEFT_WALL_DISTANCE - leftDistance;
 		}
 		
-		else if(rightWall) {
+		else if(rightWall)
+		{
 			std::cout << "Warning: only right wall detected" << std::endl;
-			float distance;
-			int e;
-			if(e = this->getRightDistance(&distance)) {
-				return e;
-			}
-			
-			std::cout << -(distance - PROPER_SIDE_WALL_DISTANCE) << std::endl;
-			error += -(distance - PROPER_SIDE_WALL_DISTANCE);
+			error = PROPER_RIGHT_WALL_DISTANCE - rightDistance;
 		}
 		
 		else {
 			std::cout << "WARNING: NO WALLS DETECTED." << std::endl;
+			error = DeltaAngle(heading, _headingTarget);
 		}
 		
 		
 		float offset = pid.update(error, (distance / DRIVE_DIVISIONS) / speed);
 		
-		float leftDistance = (distance / DRIVE_DIVISIONS) + offset;
-		float rightDistance = (distance / DRIVE_DIVISIONS) - offset;
+		float leftDriveDistance = (distance / DRIVE_DIVISIONS) + offset;
+		float rightDriveDistance = (distance / DRIVE_DIVISIONS) - offset;
 		
+		//std::cout << "E: " << error << "\tL:" << leftDistance << "\tR:" << rightDistance << std::endl; 
+				
 		// First, figure out how much time the entire operation will take using the
 		// given velocity
-		float time = ((leftDistance + rightDistance) / 2) / speed;
+		float time = ((leftDriveDistance + rightDriveDistance) / 2) / speed;
 		
 		// Now compute the left and right velocities, and accordingly the time per
 		// step of the left and right wheels
-		float leftVelocity = leftDistance / time;
-		float rightVelocity = rightDistance / time;
+		float leftVelocity = leftDriveDistance / time;
+		float rightVelocity = rightDriveDistance / time;
 			
 		// (rad/step) / (rad/s) = (s/step)
 		// Also calculate required angular velocity
@@ -292,16 +218,18 @@ int Robot::pid_drive(float distance, float speed) {
 								
 		//std::cout << periodRight << std::endl;
 			
-		int stepsLeft = leftDistance / DISTANCE_PER_STEP;
-		int stepsRight = rightDistance / DISTANCE_PER_STEP;
-		
+		int stepsLeft = leftDriveDistance / DISTANCE_PER_STEP;
+		int stepsRight = rightDriveDistance / DISTANCE_PER_STEP;
+				
+		int ret;
 		if(ret = this->_motorSystem->drive(stepsLeft,
 									stepsRight,
 									periodLeft,
 									periodRight,
 									MOTOR_FORWARD,
 									MOTOR_FORWARD,
-									5000) ){
+									5000) )
+		{
 			return ret;
 		}
 	}
@@ -311,16 +239,19 @@ int Robot::pid_drive(float distance, float speed) {
 
 int Robot::turn(int amt, float speed) {
 	// Adjust the target heading
+	/*
 	this->_headingTarget += amt * 90.0;
 	
-	while(this->_headingTarget > 360.0) {
+	while(this->_headingTarget > 360.0)
+	{
 		this->_headingTarget -= 360.0;
 	}
 	
-	while(this->_headingTarget < 0) {
+	while(this->_headingTarget < 0)
+	{
 		this->_headingTarget += 360.0;
 	}
-	
+	*/
 	int stepSpeed = (int)((DISTANCE_PER_STEP * 1000000) / speed);
 	int ret;
 	ret = this->_motorSystem->drive(TURN_STEPS(amt),
@@ -329,31 +260,27 @@ int Robot::turn(int amt, float speed) {
 									stepSpeed,
 									((amt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
 									((amt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
-									5000);
-	if(ret) {
+									10000);
+	if(ret)
+	{
 		std::cout << "Error turning." << std::endl;
 		return ret;
 	}
 	
 	usleep(500000);
-	
+	/*
 	float previous, current;
-	do {
-		ret = getHeading(&previous);
-		if(ret) {
-			std::cout << "Error reading IMU." << std::endl;
-			//return -1;
-		}
+	do
+	{
+		previous = getHeading();
 		usleep(250000);
-		ret = getHeading(&current);
-		if(ret) {
-			std::cout << "Error reading IMU." << std::endl;
-			//return -1;
-		}
-	} while (fabs(previous - current) > IMU_TOLERANCE);
+		current = getHeading();
+	} 
+	while (fabs(previous - current) > IMU_TOLERANCE);
 	
 	float turnFraction;
-	do {
+	do
+	{
 		turnFraction = DeltaAngle(this->_headingTarget, current) / 90.0;
 		std::cout << "Heading " << current << std::endl;
 		std::cout << "Target " << _headingTarget << std::endl;
@@ -365,7 +292,8 @@ int Robot::turn(int amt, float speed) {
 										((amt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
 										((amt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
 										5000);
-		if(ret) {
+		if(ret)
+		{
 			std::cout << "Error turning." << std::endl;
 			return ret;
 		}
@@ -373,46 +301,54 @@ int Robot::turn(int amt, float speed) {
 	while(fabs(turnFraction) < 0.01);
 	
 	usleep(500000);
-	
+	*/
 	return 0;
 }
 
-int Robot::checkWallFront(bool* result) {
-	*result = this->_leftFrontFacing->getDistance() <= WALL_THRESHOLD && 
-				this->_rightFrontFacing->getDistance() <= WALL_THRESHOLD;
-	return 0;
+bool Robot::checkWallFront()
+{
+	float angle = fabs(DeltaAngle(_headingTarget, getHeading()));
+	return this->_sensorSystem->getFrontDistanceLeft(angle) <= FRONT_WALL_THRESHOLD && 
+				this->_sensorSystem->getFrontDistanceRight(angle) <= FRONT_WALL_THRESHOLD;
 }
 
-int Robot::checkWallRight(bool* result) {
-	*result = this->_frontRightFacing->getDistance() <= WALL_THRESHOLD && 
-				this->_rearRightFacing->getDistance() <= WALL_THRESHOLD;
-	return 0;
+bool Robot::checkWallRight()
+{
+	float angle = fabs(DeltaAngle(_headingTarget, getHeading()));
+	return this->_sensorSystem->getRightDistanceFront(angle) <= RIGHT_WALL_THRESHOLD && 
+				this->_sensorSystem->getRightDistanceRear(angle) <= RIGHT_WALL_THRESHOLD;
 }
 
-int Robot::checkWallLeft(bool* result) {
-	*result = this->_frontLeftFacing->getDistance() <= WALL_THRESHOLD && 
-				this->_rearLeftFacing->getDistance() <= WALL_THRESHOLD;
-	return 0;
+bool Robot::checkWallLeft()
+{
+	float angle = fabs(DeltaAngle(_headingTarget, getHeading()));
+	return this->_sensorSystem->getLeftDistanceFront(angle) <= LEFT_WALL_THRESHOLD && 
+				this->_sensorSystem->getLeftDistanceRear(angle) <= LEFT_WALL_THRESHOLD;
 }
 
-int Robot::getHeading(float* heading) {
-	
-	std::ifstream imuFile;
-	imuFile.open("/home/debian/sensors/imu");
-	if(imuFile.fail()) {
-		std::cout << "Error opening IMU file." << std::endl;
-		return -1;
-	}
-	
-	imuFile >> *heading;
-	
-	if(imuFile.fail()) {
-		std::cout << "Error reading IMU." << std::endl;
-		return -1;
-	}
-	
-	imuFile.close();
-	return 0;
+float Robot::getHeading()
+{
+	return this->_sensorSystem->getHeading();
+}
+
+MotorSystem* Robot::getMotorSystem()
+{
+	return this->_motorSystem;
+}
+
+SensorSystem* Robot::getSensorSystem()
+{
+	return this->_sensorSystem;
+}
+
+bool Robot::readButton1()
+{
+	return this->_button1->getValue() == 0;
+}
+
+bool Robot::readButton2()
+{
+	return this->_button2->getValue() == 0;
 }
 
 }

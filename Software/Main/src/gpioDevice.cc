@@ -11,18 +11,21 @@ const static unsigned int GPIO_BUF_SIZE = 50;
 
 GpioDevice::GpioDevice(int pin) {
     this->pin = pin;
-
+	this->unexport(); // Just in case it was previously setup
+	
     std::fstream f;
     f.open("/sys/class/gpio/export");
     f << pin;
     f.close();
-
-    this->setDirection(1);
-    this->setValue(0);
 }
 
 GpioDevice::~GpioDevice() {
-    std::fstream f;
+    this->unexport();
+}
+
+void GpioDevice::unexport()
+{
+	std::fstream f;
     f.open("/sys/class/gpio/unexport");
     f << this->pin;
     f.close();
@@ -45,7 +48,6 @@ void GpioDevice::setValue(int value) {
     std::fstream f;
     f.open("/sys/class/gpio/gpio" + std::to_string(this->pin) + "/value");
     f << value;
-    this->value = value;
     f.close();
 }
 
@@ -54,7 +56,12 @@ int GpioDevice::getDirection() {
 }
 
 int GpioDevice::getValue() {
-    return this->value;
+    std::fstream f;
+    f.open("/sys/class/gpio/gpio" + std::to_string(this->pin) + "/value");
+    int val;
+	f >> val;
+    f.close();
+	return val;
 }
 
 }
