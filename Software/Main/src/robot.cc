@@ -378,7 +378,7 @@ int Robot::turn(int amt, float speed) {
 		this->_headingTarget += 360.0;
 	}
 	
-	int stepSpeed = (int)((DISTANCE_PER_STEP * 1000000) / speed);
+	int period = (int)((DISTANCE_PER_STEP * 1000000) / speed);
 
 	// If amt is 0, we are doing a corrective motion and don't need to implement acceleration
 	if(amt == 0)
@@ -386,8 +386,8 @@ int Robot::turn(int amt, float speed) {
 		int ret;
 		ret = this->_motorSystem->drive(TURN_STEPS(turnAmt),
 										TURN_STEPS(turnAmt),
-										stepSpeed,
-										stepSpeed,
+										period,
+										period,
 										((turnAmt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
 										((turnAmt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
 										10000);
@@ -404,12 +404,12 @@ int Robot::turn(int amt, float speed) {
 		{
 			int steps = TURN_STEPS(TURN_ACCEL_ANGLE / ((float)TURN_ACCEL_DIVS));
 			float accelSpeed = ACCEL_MIN_SPEED + (TURN_SPEED - ACCEL_MIN_SPEED)*(((float)i)/((float)TURN_ACCEL_DIVS));
-			int accelStepSpeed = (int)((DISTANCE_PER_STEP * 1000000) / accelSpeed);
+			int accelPeriod = (int)((DISTANCE_PER_STEP * 1000000) / accelSpeed);
 			
 			int ret = this->_motorSystem->drive(steps,
 											steps,
-											accelStepSpeed,
-											accelStepSpeed,
+											accelPeriod,
+											accelPeriod,
 											((turnAmt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
 											((turnAmt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
 											10000);
@@ -420,13 +420,13 @@ int Robot::turn(int amt, float speed) {
 			}
 		}
 		
-		float remainingTurnAmt = (fabs(turnAmt) - TURN_ACCEL_ANGLE) * (turnAmt > 0 ? 1 : -1);
+		float remainingTurnAmt = (fabs(turnAmt) - 2.0*TURN_ACCEL_ANGLE) * (turnAmt > 0 ? 1 : -1);
 		
 		// Turn the rest of the way at typical turn speed
 		int ret = this->_motorSystem->drive(TURN_STEPS(remainingTurnAmt),
 										TURN_STEPS(remainingTurnAmt),
-										stepSpeed,
-										stepSpeed,
+										period,
+										period,
 										((remainingTurnAmt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
 										((remainingTurnAmt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
 										10000);
@@ -435,6 +435,27 @@ int Robot::turn(int amt, float speed) {
 			std::cout << "Error turning." << std::endl;
 			return ret;
 		}
+		
+		// Now decelerate out of the turn
+		for(int i = 0; i < TURN_ACCEL_DIVS; i++)
+		{
+			int steps = TURN_STEPS(TURN_ACCEL_ANGLE / ((float)TURN_ACCEL_DIVS));
+			float accelSpeed = TURN_SPEED + (ACCEL_MIN_SPEED - TURN_SPEED)*(((float)i)/((float)TURN_ACCEL_DIVS));
+			int accelPeriod = (int)((DISTANCE_PER_STEP * 1000000) / accelSpeed);
+			
+			int ret = this->_motorSystem->drive(steps,
+												steps,
+												accelPeriod,
+												accelPeriod,
+												((turnAmt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
+												((turnAmt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
+												10000);
+			if(ret)
+			{
+				std::cout << "Error turning." << std::endl;
+				return ret;
+			}
+		}
 	}
 	
 	usleep(50000);
@@ -442,15 +463,16 @@ int Robot::turn(int amt, float speed) {
 	// Correct again just in case
 	offAmount = DeltaAngle(getHeading(), this->_headingTarget) / 90.0;
 	std::cout << "Corrective OffAmount " << offAmount << std::endl;
+	
 	if(fabs(offAmount) > 0.03)
 	{
 		int ret = this->_motorSystem->drive(TURN_STEPS(offAmount),
-										TURN_STEPS(offAmount),
-										stepSpeed,
-										stepSpeed,
-										((offAmount > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
-										((offAmount > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
-										10000);
+											TURN_STEPS(offAmount),
+											WALL_CORRECT_PERIOD,
+											WALL_CORRECT_PERIOD,
+											((offAmount > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
+											((offAmount > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
+											10000);
 		if(ret)
 		{
 			std::cout << "Error turning." << std::endl;
