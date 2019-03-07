@@ -131,19 +131,19 @@ std::vector<Cell*> Maze::GetNeighbors(int x, int y) {
   //Log("getting neighbors for row: " + std::to_string(y)
   //    + " col: " + std::to_string(x));
 
-  if (!cell.has_top_) {
+  if (y + 1 < rows_ && !cell.has_top_) {
     printf("has north\n");
     ret.push_back(&cells_[y + 1][x]);
   }
-  if (!cell.has_bottom_) {
+  if (y - 1 >= 0 && !cell.has_bottom_) {
     printf("has south \n");
     ret.push_back(&cells_[y - 1][x]);
   }
-  if (!cell.has_left_) {
+  if (x - 1 >= 0 && !cell.has_left_) {
     printf("has west\n");
     ret.push_back(&cells_[y][x - 1]);
   }
-  if (!cell.has_right_) {
+  if (x + 1 < cols_ && !cell.has_right_) {
     printf("has east\n");
     ret.push_back(&cells_[y][x + 1]);
   }

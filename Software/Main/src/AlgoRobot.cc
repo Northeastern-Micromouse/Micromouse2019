@@ -6,6 +6,7 @@
 #include <fstream>
 #include <climits>
 #include <unistd.h>
+#include <queue>
 
 namespace algorithm {
 
@@ -84,7 +85,12 @@ bool Robot::Map() {
     }
   }
   printf("exiting mapping\n");
-  return true;
+
+  if (inPath(visited, &maze_.get(top_left_goal_x_, top_left_goal_y_))) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 void Robot::Reset(bool wipeMap) {
@@ -159,10 +165,10 @@ std::vector<Cell*> Robot::ComputeShortestPath() {
     int turns = 0;
     for (int i = 0; i < a.size() - 1; i++) {
       if (prevDir != GetDirection(a[i], a[i + 1])) {
-        turns+=3;
-      } else {
+        std::cout << GetDirection(a[i], a[i + 1]) << " ";
         turns+=1;
       }
+      std::cout << std::endl;
     }
     if (turns < minTurns) {
       minTurns = turns;
@@ -397,6 +403,9 @@ void Robot::TurnSouth() {
 }
 
 void Robot::Rotate(int degrees) {
+  if (!robot_->checkWallFrontFar()) {
+    usleep(500000);
+  }
   robot_->turn(degrees / 90, TURN_SPEED);
 }
 
@@ -424,7 +433,7 @@ void Robot::moveToPath(std::vector<Cell*> tmppath) {
   Cell* curr = &maze_.get(curr_x_, curr_y_);
   Cell* start = curr;
   Cell* end = tmppath[tmppath.size() - 1];
-  std::stack<Cell*> cells_to_visit;
+  std::queue<Cell*> cells_to_visit;
   std::vector<Direction> path;
 
   Cell a = maze_.get(4, 2);
@@ -449,9 +458,12 @@ void Robot::moveToPath(std::vector<Cell*> tmppath) {
     }
     curr->visited_ = true;
     printf("in stack: ");
-    printf("x: %d y: %d, ", cells_to_visit.top()->x_, cells_to_visit.top()->y_);
+    printf("x: %d y: %d, ", cells_to_visit.front()->x_, cells_to_visit.front()->y_);
     printf("\n");
-    curr = cells_to_visit.top();
+    if (cells_to_visit.empty()) {
+      return;
+    }
+    curr = cells_to_visit.front();
     cells_to_visit.pop();
     printf("setting curr to %d, %d\n", curr->x_, curr->y_);
   }
