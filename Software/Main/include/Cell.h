@@ -20,6 +20,7 @@ class Cell {
   bool visited_;
   bool mapped_;
   Cell* parent_;
+	Cell* actualParent_;
   bool has_left_; // True iff there is a wall to the left of the cell.
   bool has_right_; // True iff there is a wall to the right of the cell.
   bool has_top_; // True iff there is a wall to the top of the cell.

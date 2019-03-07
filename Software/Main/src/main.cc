@@ -5,30 +5,42 @@
 #include <time.h>
 
 #include "robot.h"
-//#include "AlgoRobot.h"
+#include "Cell.h"
+#include "AlgoRobot.h"
 #include "Direction.h"
 
 int main()
 {	
-	/*
-	std::ifstream speedStream;
-	speedStream.open("/home/debian/size.txt");
+	micromouse::Robot* boiLL = new micromouse::Robot();
 	
-	int x, y;
-	speedStream >> x;
-	speedStream >> y;
-	speedStream.close();
-
-	algorithm::Robot winslow = algorithm::Robot(true, x, y, algorithm::Direction::NORTH);
-	winslow.Map();
-	*/
+	std::cout << "Initializing..." << std::endl;
+	boiLL->init();
+	boiLL->enableMotors();
+	std::cout << "Initialized." << std::endl;
 	
-	micromouse::Robot boi = micromouse::Robot();
-	
-	std::cout << "Initializing robot..." << std::endl;
-	boi.init();
-	std::cout << "Robot Initialized." << std::endl;
 	usleep(1000000);
+	
+	algorithm::Robot boi = algorithm::Robot(boiLL, true, 6, 6, algorithm::Direction::SOUTH);
+	boi.Reset(true);
+	
+	bool validMaze = false;
+	while(!validMaze)
+	{
+		while(!boiLL->readButton1());
+		usleep(500000);
+		validMaze = boi.Map();
+	}
+	
+	std::vector<algorithm::Cell*> path = boi.ComputeShortestPath();
+	
+	while(1)
+	{
+		while(!boiLL->readButton1());
+		usleep(500000);
+		boi.Reset(false);
+		boi.Run(path);
+	}
+	
 	/*
 	while(1)
 	{
@@ -80,7 +92,7 @@ int main()
 			usleep(100000);
 			//boi.getMotorSystem() -> drive(400*16,400*16,150,150,true,true,10000);
 			//boi.pid_drive(180, 150);
-			boi.turn(2,150);
+			boi.turn(2,TURN_SPEED);
 			usleep(100000);
 			boi.getMotorSystem() -> disable();
 		}
@@ -103,7 +115,7 @@ int main()
 	
 	return 0;
 	*/
-	
+	/*
 	while(1)
 	{
 		while(!boi.readButton1());
@@ -118,15 +130,14 @@ int main()
 		{
 			while(!boi.checkWallFrontClose())
 			{
-				boi.pid_drive(180, 175);
+				boi.pid_drive();
 			}
 			
-			usleep(50000);
-			boi.turn(1, 175);
-			usleep(50000);
+			usleep(10000);
+			boi.turn(1, TURN_SPEED);
 		}
 	}
-	
+	*/
 	/*
 	while(1)
 	{

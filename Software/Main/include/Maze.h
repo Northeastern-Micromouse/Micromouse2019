@@ -17,6 +17,8 @@ class Maze {
 
   void print();
 
+  void ReadFromFile();
+
   Cell& get(int x, int y);
 
   // Returns all of the neighbors of the given cell.

@@ -104,11 +104,9 @@ int Robot::init()
 
 void Robot::reset()
 {
-	this->_motorSystem->disable();
 	this->_sensorSystem->reset();
-	usleep(1000000);
-	this->_headingTarget = this->getHeading();
 	this->_driveCounter = 0;
+	correctDrift();
 }
 
 void Robot::enableMotors() {
@@ -137,9 +135,8 @@ float Robot::getFrontDistance() {
 int Robot::frontWallCorrect()
 {
 	// First, turn so that we're facing the wall head-on
-	usleep(500000);
 	turn(0, WALL_CORRECT_SPEED);
-	usleep(100000);
+	usleep(50000);
 	
 	while(getFrontDistance() > PROPER_FRONT_WALL_DISTANCE)
 	{
@@ -161,7 +158,7 @@ int Robot::frontWallCorrect()
 	return 0;
 }
 
-int Robot::pid_drive(float distance, float speed)
+int Robot::pid_drive()
 {
 	this->_driveCounter++;
 	
@@ -182,12 +179,10 @@ int Robot::pid_drive(float distance, float speed)
 			return this->frontWallCorrect();
 		}
 		
-		float driveSpeed = speed;
+		float driveSpeed = checkWallFrontFar() ? 
+			(ACCEL_MIN_SPEED + (DRIVE_SPEED - ACCEL_MIN_SPEED)*(1 - (getFrontDistance() - FRONT_WALL_THRESHOLD_FAR)/(FRONT_WALL_THRESHOLD_CLOSE - FRONT_WALL_THRESHOLD_FAR)) )
+			: DRIVE_SPEED;
 		
-		if(checkWallFrontFar())
-		{
-			driveSpeed = WALL_CORRECT_SPEED;
-		}
 		
 		float heading = this->getHeading();
 		
@@ -233,10 +228,10 @@ int Robot::pid_drive(float distance, float speed)
 		}
 		
 		
-		float offset = pid.update(error, (distance / this->_driveDivisions) / driveSpeed);
+		float offset = pid.update(error, (DRIVE_DISTANCE / this->_driveDivisions) / driveSpeed);
 		
-		float leftDriveDistance = (distance / this->_driveDivisions) + offset;
-		float rightDriveDistance = (distance / this->_driveDivisions) - offset;
+		float leftDriveDistance = (DRIVE_DISTANCE / this->_driveDivisions) + offset;
+		float rightDriveDistance = (DRIVE_DISTANCE / this->_driveDivisions) - offset;
 		
 		if(leftDriveDistance <= 0.1)
 		{
@@ -248,7 +243,7 @@ int Robot::pid_drive(float distance, float speed)
 			rightDriveDistance = 0.1;
 		}
 		
-		std::cout << "H: " << heading << "\tT: " << _headingTarget << "\tDA: " << DeltaAngle(heading, this->_headingTarget) << "\tE: " << error << "\tO: " << offset << std::endl; 
+		//std::cout << "H: " << heading << "\tT: " << _headingTarget << "\tDA: " << DeltaAngle(heading, this->_headingTarget) << "\tE: " << error << "\tO: " << offset << std::endl; 
 				
 		// First, figure out how much time the entire operation will take using the
 		// given velocity

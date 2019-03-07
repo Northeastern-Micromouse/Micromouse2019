@@ -30,7 +30,7 @@
 #define TURN_LENGTH				(M_PI/2.0 * ROBOT_WIDTH/2.0)
 #define TURN_STEPS(n)			(int)(fabs(n) * TURN_LENGTH / DISTANCE_PER_STEP)
 
-#define FRONT_WALL_THRESHOLD_CLOSE	3170
+#define FRONT_WALL_THRESHOLD_CLOSE	3000 // 3170
 #define FRONT_WALL_THRESHOLD_FAR	3400
 #define FRONT_WALL_SPEED_REDUCTION	0.3
 
@@ -53,6 +53,8 @@
 #define IMU_TOLERANCE				1
 
 #define DRIVE_SPEED			200
+#define ACCEL_MIN_SPEED		50
+#define DRIVE_DISTANCE		180
 #define TURN_SPEED			200
 
 namespace micromouse {
@@ -64,7 +66,7 @@ public:
 	void reset();
 	void enableMotors();
 	void disableMotors();
-	int pid_drive(float distance, float speed);
+	int pid_drive(void);
 	int correctDrift(void);
 	int turn(int amt, float speed);
 	float getLeftDistance(void);

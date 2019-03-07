@@ -6,6 +6,7 @@
 
 #include "Direction.h"
 #include "Maze.h"
+#include "Cell.h"
 #include "robot.h"
 
 namespace algorithm {
@@ -24,18 +25,21 @@ class Robot {
     Cell* first_;
     Cell second_;
   };
-  Robot(bool enable_debugging_, int maze_x, int maze_y, algorithm::Direction orientation);
+  Robot(micromouse::Robot* robot, bool enable_debugging_, int maze_x, int maze_y, algorithm::Direction orientation);
 
   // Maps the given maze. Does not return until the entire maze has been mapped.
-  void Map();
+  bool Map();
 
   // Can only be called after a call to Map. Computes the shortest path to the given goal.
-  void ComputeShortestPath();
+  std::vector<Cell*> ComputeShortestPath();
 
   // Can only be called after ComputeShortestPath. Drives the robot to the goal.
-  void Run();
+  void Run(std::vector<Cell*> path);
+  
+  // Resets the internal state and recalibrates. Wipes map if argument is true
+  void Reset(bool wipeMap); 
  private:
-  micromouse::Robot winslow_;
+  micromouse::Robot* robot_;
   algorithm::Maze maze_;
   std::stack<CellPair> neighbors_;
   algorithm::Direction orientation_;
@@ -81,7 +85,7 @@ class Robot {
 
   Direction GetDirection(Cell* start, Cell* end);
 
-  std::vector<Direction> GetPath(Cell* start, Cell* end);
+  void moveToPath(std::vector<Cell*> tmppath);
 
   // Returns true if the robot is inside the goal.
   bool IsInsideGoal();
