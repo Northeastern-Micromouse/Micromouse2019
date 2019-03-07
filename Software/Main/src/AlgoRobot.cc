@@ -17,25 +17,23 @@ Robot::Robot(micromouse::Robot* robot, bool enable_debugging, int maze_x, int ma
       enable_debugging_(enable_debugging),
       curr_x_(0),
       curr_y_(0),
-      driveSpeed_(0),
-      turnSpeed_(0),
       top_left_goal_x_(2),
-      top_left_goal_y_(2),
-      bottom_right_goal_x_(8),
-      bottom_right_goal_y_(8),
+      top_left_goal_y_(3),
+      bottom_right_goal_x_(3),
+      bottom_right_goal_y_(2),
       robot_(robot) {
- 
+
 }
 
 bool inPath(std::vector<Cell*> path, Cell* c) {
-  //printf("%d, %d\n",  c->x_, c->y_);
+  //printf("cell: %d, %d\n",  c->x_, c->y_);
   for (int i = 0; i < path.size(); i++) {
-    //printf("%d, %d\n",  path[i]->x_, path[i]->y_);
+    //printf("list elem: %d, %d\n",  path[i]->x_, path[i]->y_);
     if ((c->x_ == path[i]->x_) && (c->y_ == path[i]->y_)) {
-      //printf("%d, %d\n",  path[i]->x_, path[i]->y_);
       return true;
     }
   }
+  //printf("added to list\n");
   return false;
 }
 
@@ -44,9 +42,9 @@ bool Robot::Map() {
   curr_x_ = 0;
   curr_y_ = 0;
   std::stack<Cell*> cells_to_visit;
-  Cell* curr = &maze_.get(0,0);
+  Cell* curr = &maze_.get(curr_x_, curr_y_);
   cells_to_visit.push(curr);
-  std::vector<Cell*> visited = {curr};
+  std::vector<Cell*> visited = {};
 
   while(!cells_to_visit.empty()) {
 	printf("reading buttons\n");
@@ -60,13 +58,13 @@ bool Robot::Map() {
 	  Reset(true);
 	  return false;
 	}
-	printf("doing stack stuff\n");
+	 printf("doing stack stuff\n");
     curr = cells_to_visit.top();
     cells_to_visit.pop();
     std::vector<Cell*> tmppath = {curr};
-	printf("move\n");
+	  printf("move\n");
     moveToPath(tmppath);
-	printf("finished moving\n");
+    printf("x: %d y:% d\n", curr_x_, curr_y_);
     if (curr->x_ == top_left_goal_x_ && curr->y_ == top_left_goal_y_) {
       Cell* hi = &maze_.get(top_left_goal_x_,top_left_goal_y_);
       while (hi->x_ != 0 || hi->y_ != 0) {
@@ -77,10 +75,9 @@ bool Robot::Map() {
     }
     VisitCurrentCell();
     visited.push_back(curr);
-	printf("stack size: %u\n", maze_.GetNeighbors(curr->x_, curr->y_).size());
     for (auto neighbor: maze_.GetNeighbors(curr->x_, curr->y_)) {
       if (!inPath(visited, neighbor)) {
-		printf("adding to stack: %d %d\n", neighbor->x_, neighbor->y_);
+		    printf("adding to stack: %d %d\n", neighbor->x_, neighbor->y_);
         neighbor->actualParent_ = curr;
         cells_to_visit.push(neighbor);
       }
@@ -93,13 +90,13 @@ bool Robot::Map() {
 void Robot::Reset(bool wipeMap) {
   curr_x_ = 0;
   curr_y_ = 0;
-  orientation_ = Direction::SOUTH;
-  
+  orientation_ = Direction::NORTH;
+
   usleep(2000000);
   while(!(robot_->readButton1()));
   usleep(500000);
   robot_->reset();
-  
+
   if(wipeMap) {
     maze_ = Maze(enable_debugging_, maze_.cols(), maze_.rows());
   }
@@ -108,13 +105,13 @@ void Robot::Reset(bool wipeMap) {
 std::vector<Cell*> Robot::ComputeShortestPath() {
   printf("computing shortest path ;) \n\n");
   std::stack<std::vector<Cell*>> cells_to_visit;
-  std::vector<Cell*> tmppath = {&maze_.get(0,0)};
+  curr_x_ = 0;
+  curr_y_ = 0;
+  std::vector<Cell*> tmppath = {&maze_.get(curr_x_ , curr_y_)};
   Cell* curr;
   cells_to_visit.push(tmppath);
   std::vector<std::vector<Cell*>> possiblePaths;
   std::vector<Cell*> shortestPath;
-  curr_x_ = 0;
-  curr_y_ = 0;
 
   while(!cells_to_visit.empty()) {
   //for (int i = 0; i < 10; i++) {
@@ -142,9 +139,9 @@ std::vector<Cell*> Robot::ComputeShortestPath() {
     if (curr->x_ == top_left_goal_x_ && curr->y_ == top_left_goal_y_) {
         possiblePaths.push_back(std::vector<Cell*>(tmppath));
     }
-    printf("visiting curr cell %d %d\n", curr->x_, curr->y_);
+    //printf("visiting curr cell %d %d\n", curr->x_, curr->y_);
     //VisitCurrentCell();
-	printf("neighbor size: %d\n", maze_.GetNeighbors(curr->x_, curr->y_).size());
+	  //printf("neighbor size: %d\n", maze_.GetNeighbors(curr->x_, curr->y_).size());
     for (auto neighbor: maze_.GetNeighbors(curr->x_, curr->y_)) {
       if (!inPath(tmppath, neighbor)) {
         std::vector<Cell*> newpath = tmppath;
@@ -153,7 +150,7 @@ std::vector<Cell*> Robot::ComputeShortestPath() {
       }
     }
   }
-  
+
   curr_x_ = 0;
   curr_y_ = 0;
   shortestPath = possiblePaths[0];
@@ -174,17 +171,17 @@ std::vector<Cell*> Robot::ComputeShortestPath() {
     }
   }
   Log("Done computing the shortest path. At location: ");
-  
+
   return shortestPath;
 }
 
 Direction Robot::GetDirection(Cell* start, Cell* end) {
   if (start->x_ == end->x_ && start->y_ + 1 == end->y_) {
     //printf("returning south\n");
-    return Direction::SOUTH;
+    return Direction::NORTH;
   } else if (start->x_ == end->x_ && start->y_ == end->y_ + 1) {
     //printf("returning north\n");
-    return Direction::NORTH;
+    return Direction::SOUTH;
   } else if (start->x_ + 1 == end->x_ && start->y_ == end->y_) {
     //printf("returning east\n");
     return Direction::EAST;
@@ -205,7 +202,7 @@ void Robot::Run(std::vector<Cell*> path) {
 		Reset(false);
 		return;
 	}
-	
+
     Direction dir = GetDirection(path[i], path[i + 1]);
     printf(" -> ");
     Move(GetDirection(path[i], path[i + 1]));
@@ -227,14 +224,14 @@ bool Robot::VisitCurrentCell() {
   Cell fakeCell;
   Cell* fake = &fakeCell;
   if (curr_y_ - 1 >= 0) {
-    aboveCell = &maze_.get(curr_x_, curr_y_ - 1);
-  } else {
-    aboveCell = fake;
-  }
-  if (curr_y_ + 1 < maze_.rows()) {
-    belowCell = &maze_.get(curr_x_, curr_y_ + 1);
+    belowCell = &maze_.get(curr_x_, curr_y_ - 1);
   } else {
     belowCell = fake;
+  }
+  if (curr_y_ + 1 < maze_.rows()) {
+    aboveCell = &maze_.get(curr_x_, curr_y_ + 1);
+  } else {
+    aboveCell = fake;
   }
   if (curr_x_ - 1 >= 0) {
     leftCell = &maze_.get(curr_x_ - 1, curr_y_);
@@ -289,7 +286,7 @@ void Robot::Move(Direction dir) {
     case Direction::NORTH:
       Log("Move north");
       TurnNorth();
-      curr_y_ -= 1;
+      curr_y_ += 1;
       break;
     case Direction::EAST:
       Log("Move east");
@@ -304,7 +301,7 @@ void Robot::Move(Direction dir) {
     case Direction::SOUTH:
       Log("Move south");
       TurnSouth();
-      curr_y_ += 1;
+      curr_y_ -= 1;
       break;
     case Direction::NONE:
       Log("Do not need to move");
@@ -401,7 +398,7 @@ void Robot::TurnSouth() {
 }
 
 void Robot::Rotate(int degrees) {
-  robot_->turn(degrees / 90, turnSpeed_);
+  robot_->turn(degrees / 90, TURN_SPEED);
 }
 
 void Robot::GoBack(Direction dir) {
@@ -431,21 +428,33 @@ void Robot::moveToPath(std::vector<Cell*> tmppath) {
   std::stack<Cell*> cells_to_visit;
   std::vector<Direction> path;
 
+  Cell a = maze_.get(4, 2);
+  Cell b = maze_.get(4, 3);
+
+  printf("4 3 bot: %d", b.has_bottom_);
+  printf("4 2 top: %d", a.has_top_);
+
+  printf("moveToPath calculations\n");
   while (curr->x_ != end->x_ || curr->y_ != end->y_) {
   //for (int i = 0; i < 1; i++) {
     std::vector<Cell*> neighbors = maze_.GetNeighbors(curr->x_, curr->y_);
+    printf("neighbors size: %d\n", neighbors.size());
     if (!curr->visited_) {
       for (Cell* neighbor : neighbors) {
         if (!neighbor->visited_) {
+          printf("parent of %d %d is %d %d: \n", neighbor->x_, neighbor->y_, curr->x_, curr->y_);
           neighbor->parent_ = curr;
           cells_to_visit.push(neighbor);
         }
       }
     }
     curr->visited_ = true;
+    printf("in stack: ");
+    printf("x: %d y: %d, ", cells_to_visit.top()->x_, cells_to_visit.top()->y_);
+    printf("\n");
     curr = cells_to_visit.top();
     cells_to_visit.pop();
-    //printf("setting curr to %d, %d\n", curr->x_, curr->y_);
+    printf("setting curr to %d, %d\n", curr->x_, curr->y_);
   }
 
   while (curr->x_ != start->x_ || curr->y_ != start->y_) {
@@ -454,7 +463,7 @@ void Robot::moveToPath(std::vector<Cell*> tmppath) {
   }
 
   for (auto d : path) {
-    //std::cout << "dir " << d << ", ";
+    std::cout << "dir " << d << ", ";
     Move(d);
   }
 

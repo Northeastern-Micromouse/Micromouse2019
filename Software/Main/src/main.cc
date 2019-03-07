@@ -10,19 +10,19 @@
 #include "Direction.h"
 
 int main()
-{	
+{
 	micromouse::Robot* boiLL = new micromouse::Robot();
-	
+
 	std::cout << "Initializing..." << std::endl;
 	boiLL->init();
 	boiLL->enableMotors();
 	std::cout << "Initialized." << std::endl;
-	
+
 	usleep(1000000);
-	
-	algorithm::Robot boi = algorithm::Robot(boiLL, true, 6, 6, algorithm::Direction::SOUTH);
+
+	algorithm::Robot boi = algorithm::Robot(boiLL, true, 6, 6, algorithm::Direction::NORTH);
 	boi.Reset(true);
-	
+
 	bool validMaze = false;
 	while(!validMaze)
 	{
@@ -30,9 +30,9 @@ int main()
 		usleep(500000);
 		validMaze = boi.Map();
 	}
-	
+
 	std::vector<algorithm::Cell*> path = boi.ComputeShortestPath();
-	
+
 	while(1)
 	{
 		while(!boiLL->readButton1());
@@ -40,7 +40,7 @@ int main()
 		boi.Reset(false);
 		boi.Run(path);
 	}
-	
+
 	/*
 	while(1)
 	{
@@ -65,7 +65,7 @@ int main()
 			boi.getSensorSystem() -> getPitch(),
 			boi.getSensorSystem() -> getRoll()
 		);
-		
+
 		usleep(100000);
 	}
 	*/
@@ -78,7 +78,7 @@ int main()
 			boi.getRightDistance(),
 			boi.getFrontDistance()
 		);
-		
+
 		usleep(100000);
 	}
 	*/
@@ -100,10 +100,10 @@ int main()
 	*/
 	/*
 	while(!boi.readButton1());
-	
+
 	std::cout << "Starting PID drive..." << std::endl;
-	boi.getMotorSystem() -> enable();	
-	
+	boi.getMotorSystem() -> enable();
+
 	while(1)
 	{
 		for(int i = 0; i < 5; i++)
@@ -112,27 +112,27 @@ int main()
 		}
 		boi.turn(2, 200);
 	}
-	
+
 	return 0;
 	*/
 	/*
 	while(1)
 	{
 		while(!boi.readButton1());
-	
+
 		boi.reset();
 		std::cout << "Starting THE DONUT" << std::endl;
 		boi.getMotorSystem() -> enable();
-		
+
 		boi.correctDrift();
-		
+
 		while(!boi.readButton2())
 		{
 			while(!boi.checkWallFrontClose())
 			{
 				boi.pid_drive();
 			}
-			
+
 			usleep(10000);
 			boi.turn(1, TURN_SPEED);
 		}
