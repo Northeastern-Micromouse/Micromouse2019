@@ -286,8 +286,8 @@ int Robot::pid_drive()
 int Robot::correctDrift()
 {
 	// First, turn about 30 degrees one way
-	int ret = this->_motorSystem->drive(TURN_STEPS(0.3),
-									TURN_STEPS(0.3),
+	int ret = this->_motorSystem->drive(TURN_STEPS(CORRECT_DRIFT_ANGLE / 2.0),
+									TURN_STEPS(CORRECT_DRIFT_ANGLE / 2.0),
 									WALL_CORRECT_PERIOD,
 									WALL_CORRECT_PERIOD,
 									MOTOR_FORWARD,
@@ -304,10 +304,10 @@ int Robot::correctDrift()
 	
 	bool useLeft = getLeftDistance() > getRightDistance();
 	
-	for(int i = 0; i < 50; i++)
+	for(int i = 0; i < CORRECT_DRIFT_INCREMENTS; i++)
 	{
-		int ret = this->_motorSystem->drive(TURN_STEPS(0.6/50.0),
-									TURN_STEPS(0.6/50.0),
+		int ret = this->_motorSystem->drive(TURN_STEPS(CORRECT_DRIFT_ANGLE/CORRECT_DRIFT_INCREMENTS),
+									TURN_STEPS(CORRECT_DRIFT_ANGLE/CORRECT_DRIFT_INCREMENTS),
 									WALL_CORRECT_PERIOD,
 									WALL_CORRECT_PERIOD,
 									MOTOR_BACKWARD,
@@ -319,7 +319,7 @@ int Robot::correctDrift()
 			return ret;
 		}
 		
-		usleep(5000);
+		usleep(CORRECT_DRIFT_DELAY);
 		float distance = useLeft ? getLeftDistance() : getRightDistance();
 		
 		if(distance < minDistance)
