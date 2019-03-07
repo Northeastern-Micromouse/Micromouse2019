@@ -92,7 +92,6 @@ void Robot::Reset(bool wipeMap) {
   curr_y_ = 0;
   orientation_ = Direction::NORTH;
 
-  usleep(2000000);
   while(!(robot_->readButton1()));
   usleep(500000);
   robot_->reset();

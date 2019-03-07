@@ -11,6 +11,7 @@
 
 int main()
 {
+	
 	micromouse::Robot* boiLL = new micromouse::Robot();
 
 	std::cout << "Initializing..." << std::endl;
@@ -26,8 +27,6 @@ int main()
 	bool validMaze = false;
 	while(!validMaze)
 	{
-		while(!boiLL->readButton1());
-		usleep(500000);
 		validMaze = boi.Map();
 	}
 
@@ -40,7 +39,7 @@ int main()
 		boi.Reset(false);
 		boi.Run(path);
 	}
-
+	
 	/*
 	while(1)
 	{
@@ -83,18 +82,27 @@ int main()
 	}
 	*/
 	/*
+	micromouse::Robot* boi = new micromouse::Robot();
+
+	std::cout << "Initializing..." << std::endl;
+	boi->init();
+	boi->enableMotors();
+	std::cout << "Initialized." << std::endl;
+	
+	usleep(1000000);
+	
 	while(1)
 	{
-		if(boi.readButton1())
+		if(boi->readButton1())
 		{
 			std::cout << "Driving..." << std::endl;
-			boi.getMotorSystem() -> enable();
+			boi->getMotorSystem()->enable();
 			usleep(100000);
 			//boi.getMotorSystem() -> drive(400*16,400*16,150,150,true,true,10000);
 			//boi.pid_drive(180, 150);
-			boi.turn(2,TURN_SPEED);
+			boi->turn(1,TURN_SPEED);
 			usleep(100000);
-			boi.getMotorSystem() -> disable();
+			boi->getMotorSystem()->disable();
 		}
 	}
 	*/

@@ -52,10 +52,12 @@
 
 #define IMU_TOLERANCE				1
 
-#define DRIVE_SPEED			200
-#define ACCEL_MIN_SPEED		50
-#define DRIVE_DISTANCE		180
-#define TURN_SPEED			200
+#define DRIVE_SPEED			200	// Average drive speed
+#define TURN_SPEED			200	// The max speed at which turns are taken
+#define TURN_ACCEL_ANGLE	0.3 // The angular distance to accelerate over
+#define TURN_ACCEL_DIVS		10	// Number of angular increments to accelerate over
+#define ACCEL_MIN_SPEED		50	// The speed to accelerate from / decelerate to
+#define DRIVE_DISTANCE		180	// The distance of one cell
 
 namespace micromouse {
 	

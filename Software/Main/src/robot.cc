@@ -377,20 +377,64 @@ int Robot::turn(int amt, float speed) {
 	{
 		this->_headingTarget += 360.0;
 	}
-
+	
 	int stepSpeed = (int)((DISTANCE_PER_STEP * 1000000) / speed);
-	int ret;
-	ret = this->_motorSystem->drive(TURN_STEPS(turnAmt),
-									TURN_STEPS(turnAmt),
-									stepSpeed,
-									stepSpeed,
-									((turnAmt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
-									((turnAmt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
-									10000);
-	if(ret)
+
+	// If amt is 0, we are doing a corrective motion and don't need to implement acceleration
+	if(amt == 0)
 	{
-		std::cout << "Error turning." << std::endl;
-		return ret;
+		int ret;
+		ret = this->_motorSystem->drive(TURN_STEPS(turnAmt),
+										TURN_STEPS(turnAmt),
+										stepSpeed,
+										stepSpeed,
+										((turnAmt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
+										((turnAmt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
+										10000);
+		if(ret)
+		{
+			std::cout << "Error turning." << std::endl;
+			return ret;
+		}
+	}
+	// Otherwise, implement acceleration to prevent slipping
+	else
+	{
+		for(int i = 0; i < TURN_ACCEL_DIVS; i++)
+		{
+			int steps = TURN_STEPS(TURN_ACCEL_ANGLE / ((float)TURN_ACCEL_DIVS));
+			float accelSpeed = ACCEL_MIN_SPEED + (TURN_SPEED - ACCEL_MIN_SPEED)*(((float)i)/((float)TURN_ACCEL_DIVS));
+			int accelStepSpeed = (int)((DISTANCE_PER_STEP * 1000000) / accelSpeed);
+			
+			int ret = this->_motorSystem->drive(steps,
+											steps,
+											accelStepSpeed,
+											accelStepSpeed,
+											((turnAmt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
+											((turnAmt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
+											10000);
+			if(ret)
+			{
+				std::cout << "Error turning." << std::endl;
+				return ret;
+			}
+		}
+		
+		float remainingTurnAmt = (fabs(turnAmt) - TURN_ACCEL_ANGLE) * (turnAmt > 0 ? 1 : -1);
+		
+		// Turn the rest of the way at typical turn speed
+		int ret = this->_motorSystem->drive(TURN_STEPS(remainingTurnAmt),
+										TURN_STEPS(remainingTurnAmt),
+										stepSpeed,
+										stepSpeed,
+										((remainingTurnAmt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
+										((remainingTurnAmt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
+										10000);
+		if(ret)
+		{
+			std::cout << "Error turning." << std::endl;
+			return ret;
+		}
 	}
 	
 	usleep(50000);
@@ -400,7 +444,7 @@ int Robot::turn(int amt, float speed) {
 	std::cout << "Corrective OffAmount " << offAmount << std::endl;
 	if(fabs(offAmount) > 0.03)
 	{
-		ret = this->_motorSystem->drive(TURN_STEPS(offAmount),
+		int ret = this->_motorSystem->drive(TURN_STEPS(offAmount),
 										TURN_STEPS(offAmount),
 										stepSpeed,
 										stepSpeed,
