@@ -63,6 +63,7 @@ class SensorSystem
 public:
 	SensorSystem(volatile unsigned int*);
 	int init(void);
+	void reset(void);
 	void zeroIMU(void);
 	float getHeading(void);
 	float getPitch(void);

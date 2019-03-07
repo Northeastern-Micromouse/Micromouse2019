@@ -29,19 +29,24 @@ int SensorSystem::init()
 	return 0;
 }
 
+void SensorSystem::reset()
+{
+	this->_imu_memory[3] = 1;
+}
+
 float SensorSystem::getHeading()
 {
-	return this->_imu_memory[2];
+	return this->_imu_memory[2] + 180.0;
 }
 
 float SensorSystem::getPitch()
 {
-	return this->_imu_memory[1];
+	return this->_imu_memory[1] + 180.0;
 }
 
 float SensorSystem::getRoll()
 {
-	return this->_imu_memory[0];
+	return this->_imu_memory[0] + 180.0;
 }
 
 float SensorSystem::getLeftDistanceFront(float angle)

@@ -7,10 +7,15 @@ float DeltaAngle(float current, float target)
     if (fabs(target - current) > 180)
 	{
         return (360 - fabs(target - current))*
-                    (target - current > 0 ? 1 : -1);
+                    (current - target > 0 ? 1 : -1);
     }
 	
     return target - current;
+}
+
+void Robot::printOffHeading()
+{
+	std::cout << DeltaAngle(getHeading(), _headingTarget) << std::endl;
 }
 	
 int Robot::init()
@@ -79,19 +84,31 @@ int Robot::init()
 	this->_button2->setDirection(GPIO_IN);
 	
 	/** Load PID gains **/
-	std::ifstream pidFile;
-	pidFile.open(PID_GAINS_PATH);
-	pidFile >> this->_driveKp;
-	pidFile >> this->_driveKi;
-	pidFile >> this->_driveKd;
-	pidFile.close();
+	std::ifstream configFile;
+	configFile.open(CONFIG_PATH);
+	configFile >> this->_driveKp;
+	configFile >> this->_driveKi;
+	configFile >> this->_driveKd;
+	configFile >> this->_driveDivisions;
+	configFile.close();
 	
 	std::cout << "Loaded PID gains: ";
 	std::cout << this->_driveKp << " ";
 	std::cout << this->_driveKi << " ";
 	std::cout << this->_driveKd << std::endl;
+	
+	std::cout << "Loaded " << this->_driveDivisions << " drive divisions." << std::endl;
 
 	usleep(1000000);
+}
+
+void Robot::reset()
+{
+	this->_motorSystem->disable();
+	this->_sensorSystem->reset();
+	usleep(1000000);
+	this->_headingTarget = this->getHeading();
+	this->_driveCounter = 0;
 }
 
 void Robot::enableMotors() {
@@ -119,44 +136,57 @@ float Robot::getFrontDistance() {
 
 int Robot::frontWallCorrect()
 {
-	float distance = getFrontDistance();
-	int steps = (int)((distance - PROPER_FRONT_WALL_DISTANCE) / DISTANCE_PER_STEP);
-	int period = (int)((DISTANCE_PER_STEP * 1000000)/ WALL_CORRECT_SPEED);
+	// First, turn so that we're facing the wall head-on
+	usleep(500000);
+	turn(0, WALL_CORRECT_SPEED);
+	usleep(100000);
 	
-	int direction = MOTOR_FORWARD;
-	
-	//std::cout << "Correcting by " << (distance - PROPER_FRONT_WALL_DISTANCE) << std::endl;
-	
-	if(steps < 0)
+	while(getFrontDistance() > PROPER_FRONT_WALL_DISTANCE)
 	{
-		steps = -steps;
-		direction = MOTOR_BACKWARD;
+		int ret = this->_motorSystem->drive(WALL_CORRECT_INCREMENT,
+											WALL_CORRECT_INCREMENT,
+											WALL_CORRECT_PERIOD,
+											WALL_CORRECT_PERIOD,
+											MOTOR_FORWARD,
+											MOTOR_FORWARD,
+											5000);
+										
+		if(ret)
+		{
+			std::cout << "Error during wall correction." << std::endl;
+			return ret;
+		}
 	}
 	
-	return this->_motorSystem->drive(steps,
-								steps,
-								period,
-								period,
-								direction,
-								direction,
-								5000);
-								
-	usleep(500000);
+	return 0;
 }
 
 int Robot::pid_drive(float distance, float speed)
 {
+	this->_driveCounter++;
+	
+	if(this->_driveCounter >= UNCALIBRATED_DRIVE_DISTANCE && checkWallLeft() && checkWallRight())
+	{
+		correctDrift();
+		this->_driveCounter = 0;
+	}
 	
 	PID pid(this->_driveKp, this->_driveKi, this->_driveKd);
 	pid.reset();
 	
 	float heading;
-	for(int i = 0; i < DRIVE_DIVISIONS; i++) {
+	for(int i = 0; i < this->_driveDivisions; i++) {
 		
-		if(checkWallFront())
+		if(checkWallFrontClose())
 		{
-			//std::cout << "Correcting..." << std::endl;
-			//return this->frontWallCorrect();
+			return this->frontWallCorrect();
+		}
+		
+		float driveSpeed = speed;
+		
+		if(checkWallFrontFar())
+		{
+			driveSpeed = WALL_CORRECT_SPEED;
 		}
 		
 		float heading = this->getHeading();
@@ -176,32 +206,53 @@ int Robot::pid_drive(float distance, float speed)
 		
 		else if(leftWall)
 		{
-			std::cout << "Warning: only left wall detected" << std::endl;
+			//std::cout << "Warning: only left wall detected" << std::endl;
+			/*
+			error = 0.5*ERROR_ONEWALL_HEADING_COEFFICIENT*DeltaAngle(heading, _headingTarget) 
+						+ 0.5*(PROPER_LEFT_WALL_DISTANCE - leftDistance);
+			*/
 			error = PROPER_LEFT_WALL_DISTANCE - leftDistance;
 		}
 		
 		else if(rightWall)
 		{
-			std::cout << "Warning: only right wall detected" << std::endl;
-			error = PROPER_RIGHT_WALL_DISTANCE - rightDistance;
+			//std::cout << "Warning: only right wall detected" << std::endl;
+			//std::cout << DeltaAngle(heading, _headingTarget) << std::endl;
+			/*
+			error = 0.5*ERROR_ONEWALL_HEADING_COEFFICIENT*DeltaAngle(heading, _headingTarget) 
+						+ 0.5*(rightDistance - PROPER_RIGHT_WALL_DISTANCE);
+			*/
+			error = rightDistance - PROPER_RIGHT_WALL_DISTANCE;
 		}
 		
-		else {
-			std::cout << "WARNING: NO WALLS DETECTED." << std::endl;
-			error = DeltaAngle(heading, _headingTarget);
+		else
+		{
+			//std::cout << "WARNING: NO WALLS DETECTED." << std::endl;
+			//std::cout << DeltaAngle(heading, _headingTarget) << std::endl;
+			error = ERROR_NOWALL_HEADING_COEFFICIENT*DeltaAngle(heading, _headingTarget);
 		}
 		
 		
-		float offset = pid.update(error, (distance / DRIVE_DIVISIONS) / speed);
+		float offset = pid.update(error, (distance / this->_driveDivisions) / driveSpeed);
 		
-		float leftDriveDistance = (distance / DRIVE_DIVISIONS) + offset;
-		float rightDriveDistance = (distance / DRIVE_DIVISIONS) - offset;
+		float leftDriveDistance = (distance / this->_driveDivisions) + offset;
+		float rightDriveDistance = (distance / this->_driveDivisions) - offset;
 		
-		//std::cout << "E: " << error << "\tL:" << leftDistance << "\tR:" << rightDistance << std::endl; 
+		if(leftDriveDistance <= 0.1)
+		{
+			leftDriveDistance = 0.1;
+		}
+		
+		if(rightDriveDistance <= 0.1)
+		{
+			rightDriveDistance = 0.1;
+		}
+		
+		std::cout << "H: " << heading << "\tT: " << _headingTarget << "\tDA: " << DeltaAngle(heading, this->_headingTarget) << "\tE: " << error << "\tO: " << offset << std::endl; 
 				
 		// First, figure out how much time the entire operation will take using the
 		// given velocity
-		float time = ((leftDriveDistance + rightDriveDistance) / 2) / speed;
+		float time = ((leftDriveDistance + rightDriveDistance) / 2) / driveSpeed;
 		
 		// Now compute the left and right velocities, and accordingly the time per
 		// step of the left and right wheels
@@ -237,9 +288,89 @@ int Robot::pid_drive(float distance, float speed)
 	return 0;
 }
 
+int Robot::correctDrift()
+{
+	// First, turn about 30 degrees one way
+	int ret = this->_motorSystem->drive(TURN_STEPS(0.3),
+									TURN_STEPS(0.3),
+									WALL_CORRECT_PERIOD,
+									WALL_CORRECT_PERIOD,
+									MOTOR_FORWARD,
+									MOTOR_BACKWARD,
+									10000);
+	if(ret)
+	{
+		std::cout << "Error turning." << std::endl;
+		return ret;
+	}
+	
+	float minDistance = 999999;
+	float minAngle = 0;
+	
+	bool useLeft = getLeftDistance() > getRightDistance();
+	
+	for(int i = 0; i < 50; i++)
+	{
+		int ret = this->_motorSystem->drive(TURN_STEPS(0.6/50.0),
+									TURN_STEPS(0.6/50.0),
+									WALL_CORRECT_PERIOD,
+									WALL_CORRECT_PERIOD,
+									MOTOR_BACKWARD,
+									MOTOR_FORWARD,
+									10000);
+		if(ret)
+		{
+			std::cout << "Error turning." << std::endl;
+			return ret;
+		}
+		
+		usleep(5000);
+		float distance = useLeft ? getLeftDistance() : getRightDistance();
+		
+		if(distance < minDistance)
+		{
+			minDistance = distance;
+			minAngle = getHeading();
+		}
+	}
+	
+	_headingTarget = minAngle;
+	
+	turn(0, WALL_CORRECT_SPEED);
+	
+	return 0;
+}
+
 int Robot::turn(int amt, float speed) {
-	// Adjust the target heading
+	// Wait until gyro is stable
+	float previous, current;
+	do
+	{
+		previous = getHeading();
+		usleep(50000);
+		current = getHeading();
+	}
+	while(fabs(DeltaAngle(previous, current)) > IMU_TOLERANCE);
+	
 	/*
+	// If we have three walls surrounding us, calibrate for gyro drift by normalizing against the walls
+	if(correctForDrift && checkWallFrontClose() && checkWallLeft() && checkWallRight())
+	{
+		int retVal = correctDrift();
+		if(retVal)
+		{
+			std::cout << "Error correcting drift." << std::endl;
+			return retVal;
+		}
+	}
+	*/
+	
+	float offAmount = DeltaAngle(getHeading(), this->_headingTarget) / 90.0;
+	
+	float turnAmt = ((float)amt) + offAmount;
+	
+	std::cout << "OffAmount: " << offAmount << "\tTurnAmt: " << turnAmt << std::endl;
+	
 	this->_headingTarget += amt * 90.0;
 	
 	while(this->_headingTarget > 360.0)
@@ -251,15 +382,15 @@ int Robot::turn(int amt, float speed) {
 	{
 		this->_headingTarget += 360.0;
 	}
-	*/
+
 	int stepSpeed = (int)((DISTANCE_PER_STEP * 1000000) / speed);
 	int ret;
-	ret = this->_motorSystem->drive(TURN_STEPS(amt),
-									TURN_STEPS(amt),
+	ret = this->_motorSystem->drive(TURN_STEPS(turnAmt),
+									TURN_STEPS(turnAmt),
 									stepSpeed,
 									stepSpeed,
-									((amt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
-									((amt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
+									((turnAmt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
+									((turnAmt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
 									10000);
 	if(ret)
 	{
@@ -267,49 +398,38 @@ int Robot::turn(int amt, float speed) {
 		return ret;
 	}
 	
-	usleep(500000);
-	/*
-	float previous, current;
-	do
-	{
-		previous = getHeading();
-		usleep(250000);
-		current = getHeading();
-	} 
-	while (fabs(previous - current) > IMU_TOLERANCE);
+	usleep(50000);
 	
-	float turnFraction;
-	do
+	// Correct again just in case
+	offAmount = DeltaAngle(getHeading(), this->_headingTarget) / 90.0;
+	std::cout << "Corrective OffAmount " << offAmount << std::endl;
+	if(fabs(offAmount) > 0.03)
 	{
-		turnFraction = DeltaAngle(this->_headingTarget, current) / 90.0;
-		std::cout << "Heading " << current << std::endl;
-		std::cout << "Target " << _headingTarget << std::endl;
-		std::cout << "Turning " << turnFraction * 90.0 << std::endl;
-		ret = this->_motorSystem->drive(TURN_STEPS(turnFraction),
-										TURN_STEPS(turnFraction),
-										stepSpeed * 4,
-										stepSpeed * 4,
-										((amt > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
-										((amt > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
-										5000);
+		ret = this->_motorSystem->drive(TURN_STEPS(offAmount),
+										TURN_STEPS(offAmount),
+										stepSpeed,
+										stepSpeed,
+										((offAmount > 0) ? MOTOR_FORWARD : MOTOR_BACKWARD),
+										((offAmount > 0) ? MOTOR_BACKWARD : MOTOR_FORWARD),
+										10000);
 		if(ret)
 		{
 			std::cout << "Error turning." << std::endl;
 			return ret;
 		}
 	}
-	while(fabs(turnFraction) < 0.01);
 	
-	usleep(500000);
-	*/
 	return 0;
 }
 
-bool Robot::checkWallFront()
+bool Robot::checkWallFrontClose()
 {
-	float angle = fabs(DeltaAngle(_headingTarget, getHeading()));
-	return this->_sensorSystem->getFrontDistanceLeft(angle) <= FRONT_WALL_THRESHOLD && 
-				this->_sensorSystem->getFrontDistanceRight(angle) <= FRONT_WALL_THRESHOLD;
+	return this->getFrontDistance() <= FRONT_WALL_THRESHOLD_CLOSE;
+}
+
+bool Robot::checkWallFrontFar()
+{
+	return this->getFrontDistance() <= FRONT_WALL_THRESHOLD_FAR;
 }
 
 bool Robot::checkWallRight()
@@ -328,7 +448,7 @@ bool Robot::checkWallLeft()
 
 float Robot::getHeading()
 {
-	return this->_sensorSystem->getHeading();
+	return 360 - (this->_sensorSystem->getHeading());
 }
 
 MotorSystem* Robot::getMotorSystem()

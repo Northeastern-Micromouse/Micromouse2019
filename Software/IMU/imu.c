@@ -24,7 +24,7 @@
 
 // System constants
 #define deltat 0.023f // sampling period in seconds (shown as 1 ms)
-#define gyroMeasError 3.14159265358979 * (2.0f / 180.0f) // gyroscope measurement error in rad/s (shown as 5 deg/s)
+#define gyroMeasError 3.14159265358979 * (2.75f / 180.0f) // gyroscope measurement error in rad/s (shown as 5 deg/s)
 #define gyroMeasDrift 3.14159265358979 * (0.2f / 180.0f) // gyroscope measurement error in rad/s/s (shown as 0.2f deg/s/s)
 #define beta sqrt(3.0f / 4.0f) * gyroMeasError // compute beta
 #define zeta sqrt(3.0f / 4.0f) * gyroMeasDrift // compute zeta
@@ -103,6 +103,24 @@ int main()
 	
 	printf("PRU Initialized.\n");
 	
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	// Lock memory to ensure no swapping is done.
+	if(mlockall(MCL_FUTURE|MCL_CURRENT))
+	{
+		fprintf(stderr,"WARNING: Failed to lock memory\n");
+	}
+
+	// Set our thread to real time priority
+	struct sched_param sp;
+	sp.sched_priority = 30;
+	if(pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp))
+	{
+		fprintf(stderr,"WARNING: Failed to set thread to real-time priority\n");
+	}
+	
 	// Collect some samples for biasing
 	
 	for(int i = 0; i < 128; i++)
@@ -123,82 +141,80 @@ int main()
 	gyro_y_bias >>= 7;
 	gyro_z_bias >>= 7;
 	
-	struct timespec ts;
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-
-	// Lock memory to ensure no swapping is done.
-	if(mlockall(MCL_FUTURE|MCL_CURRENT))
-	{
-		fprintf(stderr,"WARNING: Failed to lock memory\n");
-	}
-
-	// Set our thread to real time priority
-	struct sched_param sp;
-	sp.sched_priority = 30;
-	if(pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp))
-	{
-		fprintf(stderr,"WARNING: Failed to set thread to real-time priority\n");
-	}
-	
 	while(1)
 	{
-		float accel_x = (float)(((int32_t)pru1_dram[MEM_SENSORS_ACCEL_X]) - accel_x_bias);
-		float accel_y = (float)(((int32_t)pru1_dram[MEM_SENSORS_ACCEL_Y]) - accel_y_bias);
-		float accel_z = (float)(((int32_t)pru1_dram[MEM_SENSORS_ACCEL_Z]) - accel_z_bias);
-		float gyro_x = (float)(((int32_t)pru1_dram[MEM_SENSORS_GYRO_X]) - gyro_x_bias);
-		float gyro_y = (float)(((int32_t)pru1_dram[MEM_SENSORS_GYRO_Y]) - gyro_y_bias);
-		float gyro_z = (float)(((int32_t)pru1_dram[MEM_SENSORS_GYRO_Z]) - gyro_z_bias);
-		float mag_x = (float)((int32_t)pru1_dram[MEM_SENSORS_MAG_X_C]);
-		float mag_y = (float)((int32_t)pru1_dram[MEM_SENSORS_MAG_Y_C]);
-		float mag_z = (float)((int32_t)pru1_dram[MEM_SENSORS_MAG_Z_C]);
+		// Reset state variables
+		SEq_1 = 1;
+		SEq_2 = 0;
+		SEq_3 = 0;
+		SEq_4 = 0; 
+		b_x = 1;
+		b_z = 0; 
+		w_bx = 0;
+		w_by = 0; 
+		w_bz = 0;
 		
-		/*
-		printf(
-			"XL:%3.1f %3.1f %3.1f\t G:%3.1f %3.1f %3.1f\t Mag:%3.1f %3.1f %3.1f\t",
-			accel_x,
-			accel_y,
-			accel_z,
-			gyro_x,
-			gyro_y,
-			gyro_z,
-			mag_x,
-			mag_y,
-			mag_z
-			);
-		*/
-		/*
-		printf(
-			"XL:%3.1f %d %d\t G:%d %d %d\t Mag:%d %d %d\t",
-			(float)((int32_t)pru1_dram[MEM_SENSORS_ACCEL_X] - accel_x_bias),
-			(int32_t)pru1_dram[MEM_SENSORS_ACCEL_Y],
-			(int32_t)pru1_dram[MEM_SENSORS_ACCEL_Z],
-			(int32_t)pru1_dram[MEM_SENSORS_GYRO_X],
-			(int32_t)pru1_dram[MEM_SENSORS_GYRO_Y],
-			(int32_t)pru1_dram[MEM_SENSORS_GYRO_Z],
-			(int32_t)pru1_dram[MEM_SENSORS_MAG_X_C],
-			(int32_t)pru1_dram[MEM_SENSORS_MAG_Y_C],
-			(int32_t)pru1_dram[MEM_SENSORS_MAG_Z_C]
-			);
-		*/
-		gyro_x *= (500.0/32768.0)*(M_PI/180.0);
-		gyro_y *= (500.0/32768.0)*(M_PI/180.0);
-		gyro_z *= (500.0/32768.0)*(M_PI/180.0);
-				
-		filterUpdate(gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z, mag_x, mag_y, mag_z);
+		data[3] = 0;
 		
-		// https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
-		float roll = atan2(2*(SEq_1*SEq_2 + SEq_3*SEq_4), 1 - 2*(SEq_2*SEq_2 + SEq_3*SEq_3));
-		float pitch = asin(2*(SEq_1*SEq_3 - SEq_4*SEq_2));
-		float yaw = atan2(2*(SEq_1*SEq_4 + SEq_2*SEq_3), 1 - 2*(SEq_3*SEq_3 + SEq_4*SEq_4));
-		
-		data[0] = roll*180.0/M_PI;
-		data[1] = pitch*180.0/M_PI;
-		data[2] = yaw*180.0/M_PI;
-		
-		//printf("%3.1f\n", yaw*180.0/M_PI);
-		
-		sleep_until(&ts,20*1000*1000); // Note: Delay in ns
+		while(data[3] != 1)
+		{
+			float accel_x = (float)(((int32_t)pru1_dram[MEM_SENSORS_ACCEL_X]) - accel_x_bias);
+			float accel_y = (float)(((int32_t)pru1_dram[MEM_SENSORS_ACCEL_Y]) - accel_y_bias);
+			float accel_z = (float)(((int32_t)pru1_dram[MEM_SENSORS_ACCEL_Z]) - accel_z_bias);
+			float gyro_x = (float)(((int32_t)pru1_dram[MEM_SENSORS_GYRO_X]) - gyro_x_bias);
+			float gyro_y = (float)(((int32_t)pru1_dram[MEM_SENSORS_GYRO_Y]) - gyro_y_bias);
+			float gyro_z = (float)(((int32_t)pru1_dram[MEM_SENSORS_GYRO_Z]) - gyro_z_bias);
+			float mag_x = (float)((int32_t)pru1_dram[MEM_SENSORS_MAG_X_C]);
+			float mag_y = (float)((int32_t)pru1_dram[MEM_SENSORS_MAG_Y_C]);
+			float mag_z = (float)((int32_t)pru1_dram[MEM_SENSORS_MAG_Z_C]);
+			
+			/*
+			printf(
+				"XL:%3.1f %3.1f %3.1f\t G:%3.1f %3.1f %3.1f\t Mag:%3.1f %3.1f %3.1f\t",
+				accel_x,
+				accel_y,
+				accel_z,
+				gyro_x,
+				gyro_y,
+				gyro_z,
+				mag_x,
+				mag_y,
+				mag_z
+				);
+			*/
+			/*
+			printf(
+				"XL:%3.1f %d %d\t G:%d %d %d\t Mag:%d %d %d\t",
+				(float)((int32_t)pru1_dram[MEM_SENSORS_ACCEL_X] - accel_x_bias),
+				(int32_t)pru1_dram[MEM_SENSORS_ACCEL_Y],
+				(int32_t)pru1_dram[MEM_SENSORS_ACCEL_Z],
+				(int32_t)pru1_dram[MEM_SENSORS_GYRO_X],
+				(int32_t)pru1_dram[MEM_SENSORS_GYRO_Y],
+				(int32_t)pru1_dram[MEM_SENSORS_GYRO_Z],
+				(int32_t)pru1_dram[MEM_SENSORS_MAG_X_C],
+				(int32_t)pru1_dram[MEM_SENSORS_MAG_Y_C],
+				(int32_t)pru1_dram[MEM_SENSORS_MAG_Z_C]
+				);
+			*/
+			gyro_x *= (500.0/32768.0)*(M_PI/180.0);
+			gyro_y *= (500.0/32768.0)*(M_PI/180.0);
+			gyro_z *= (500.0/32768.0)*(M_PI/180.0);
+					
+			filterUpdate(gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z, mag_x, mag_y, mag_z);
+			
+			// https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+			float roll = atan2(2*(SEq_1*SEq_2 + SEq_3*SEq_4), 1 - 2*(SEq_2*SEq_2 + SEq_3*SEq_3));
+			float pitch = asin(2*(SEq_1*SEq_3 - SEq_4*SEq_2));
+			float yaw = atan2(2*(SEq_1*SEq_4 + SEq_2*SEq_3), 1 - 2*(SEq_3*SEq_3 + SEq_4*SEq_4));
+			
+			data[0] = roll*180.0/M_PI;
+			data[1] = pitch*180.0/M_PI;
+			data[2] = yaw*180.0/M_PI;
+			
+			//printf("%3.1f\n", yaw*180.0/M_PI);
+			
+			sleep_until(&ts,20*1000*1000); // Note: Delay in ns
+		}
 	}
 	
       

@@ -18,10 +18,7 @@
 #define PRU_SHAREDMEM   0x10000         // Offset to shared memory
 
 // PID Gains for driving
-#define PID_GAINS_PATH "/home/debian/pidgains.txt"
-
-// Number of discrete motions a single drive command will be divided into
-#define DRIVE_DIVISIONS 15
+#define CONFIG_PATH "/home/debian/config.txt"
 
 // Hardware constants
 #define MICROSTEPPING			8
@@ -29,21 +26,34 @@
 #define WHEEL_RADIUS 			30.0
 #define DISTANCE_PER_STEP		(RADIANS_PER_STEP*WHEEL_RADIUS)
 
-#define ROBOT_WIDTH 			77.0
+#define ROBOT_WIDTH 			78.0
 #define TURN_LENGTH				(M_PI/2.0 * ROBOT_WIDTH/2.0)
 #define TURN_STEPS(n)			(int)(fabs(n) * TURN_LENGTH / DISTANCE_PER_STEP)
 
+#define FRONT_WALL_THRESHOLD_CLOSE	3170
+#define FRONT_WALL_THRESHOLD_FAR	3400
+#define FRONT_WALL_SPEED_REDUCTION	0.3
+
 #define LEFT_WALL_THRESHOLD			3600
 #define RIGHT_WALL_THRESHOLD		3600
-#define FRONT_WALL_THRESHOLD		1600
-#define PROPER_FRONT_WALL_DISTANCE	1490
-#define PROPER_LEFT_WALL_DISTANCE	2630
-#define PROPER_RIGHT_WALL_DISTANCE	2750
-#define WALL_CORRECT_SPEED			100
+#define PROPER_FRONT_WALL_DISTANCE	1600
+#define PROPER_LEFT_WALL_DISTANCE	2800
+#define PROPER_RIGHT_WALL_DISTANCE	2687
+
+#define WALL_CORRECT_SPEED			75
+#define WALL_CORRECT_PERIOD			(int)((DISTANCE_PER_STEP * 1000000)/ WALL_CORRECT_SPEED)
+#define WALL_CORRECT_INCREMENT		100
+
+#define UNCALIBRATED_DRIVE_DISTANCE	10
+
+#define ERROR_TWOWALL_HEADING_COEFFICIENT   1
+#define ERROR_ONEWALL_HEADING_COEFFICIENT   80
+#define ERROR_NOWALL_HEADING_COEFFICIENT	80
 
 #define IMU_TOLERANCE				1
 
-#define HEADING_MEASUREMENTS 5
+#define DRIVE_SPEED			200
+#define TURN_SPEED			200
 
 namespace micromouse {
 	
@@ -51,14 +61,17 @@ class Robot {
 	
 public:
 	int init();
+	void reset();
 	void enableMotors();
 	void disableMotors();
 	int pid_drive(float distance, float speed);
+	int correctDrift(void);
 	int turn(int amt, float speed);
 	float getLeftDistance(void);
 	float getRightDistance(void);
 	float getFrontDistance(void);
-	bool checkWallFront(void);
+	bool checkWallFrontFar(void);
+	bool checkWallFrontClose(void);
 	bool checkWallRight(void);
 	bool checkWallLeft(void);
 	float getHeading(void);
@@ -68,6 +81,8 @@ public:
 	
 	SensorSystem* getSensorSystem(void);
 	MotorSystem* getMotorSystem(void);
+	
+	void printOffHeading(void);
 
 private:
 	
@@ -79,13 +94,14 @@ private:
 	micromouse::GpioDevice* _button1;
 	micromouse::GpioDevice* _button2;
 	
+	// Tuning parameters
 	float _driveKp;
 	float _driveKi;
 	float _driveKd;
+	int _driveDivisions;
 
 	float _headingTarget;
-	float _driveHeadingCoefficient;
-	
+	int _driveCounter = 0;
 };
 	
 	

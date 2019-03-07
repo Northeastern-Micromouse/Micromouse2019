@@ -44,7 +44,7 @@ int main()
 		usleep(100000);
 	}
 	*/
-	
+	/*
 	while(1)
 	{
 		printf(
@@ -56,7 +56,7 @@ int main()
 		
 		usleep(100000);
 	}
-	
+	*/
 	/*
 	while(1)
 	{
@@ -96,27 +96,43 @@ int main()
 	{
 		for(int i = 0; i < 5; i++)
 		{
-			boi.pid_drive(180, 150);
+			boi.pid_drive(180, 200);
 		}
-		boi.turn(2, 50);
+		boi.turn(2, 200);
 	}
 	
 	return 0;
 	*/
-	/*
-	while(!boi.readButton1());
-	
-	std::cout << "Starting THE DONUT" << std::endl;
-	boi.getMotorSystem() -> enable();	
 	
 	while(1)
 	{
-		for(int i = 0; i < 2; i++)
+		while(!boi.readButton1());
+	
+		boi.reset();
+		std::cout << "Starting THE DONUT" << std::endl;
+		boi.getMotorSystem() -> enable();
+		
+		boi.correctDrift();
+		
+		while(!boi.readButton2())
 		{
-			boi.pid_drive(180, 150);
+			while(!boi.checkWallFrontClose())
+			{
+				boi.pid_drive(180, 175);
+			}
+			
+			usleep(50000);
+			boi.turn(1, 175);
+			usleep(50000);
 		}
-		boi.turn(1, 150);
 	}
-	*/
+	
+	/*
+	while(1)
+	{
+		boi.printOffHeading();
+		usleep(100000);
+	}
 	return 0;
+	*/
 }
