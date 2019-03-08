@@ -60,8 +60,8 @@ void Maze::ClearVisitedAndParent(){
 }
 
 void Maze::print() {
-  for (int jj = 0; jj < rows_; jj++) {
-    for (int ii = 0; ii < cols_; ii++) {
+  for (int jj = rows_ - 1; jj >= 0; jj--) {
+    for (int ii = 0; ii < cols_ ; ii++) {
       std::cout << "#";
       if (cells_[jj][ii].has_top_ == true)
         std::cout << "#";
@@ -84,7 +84,7 @@ void Maze::print() {
 
   for (int ii = 0; ii < cols_; ii++) {
     std::cout << "#";
-    if (cells_[rows_ - 1][ii].has_bottom_ == true)
+    if (cells_[0][ii].has_bottom_ == true)
       std::cout << "#";
     else {
       std::cout << " ";

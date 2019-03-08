@@ -11,13 +11,24 @@
 
 int main()
 {
-	
+
 	micromouse::Robot* boiLL = new micromouse::Robot();
 
 	std::cout << "Initializing..." << std::endl;
 	boiLL->init();
 	boiLL->enableMotors();
 	std::cout << "Initialized." << std::endl;
+
+	std::ofstream ledFile;
+	ledFile.open("/sys/devices/platform/leds/leds/beaglebone\:green\:usr1/brightness", std::ios::trunc);
+	ledFile << "0";
+	ledFile.close();
+	ledFile.open("/sys/devices/platform/leds/leds/beaglebone\:green\:usr2/brightness", std::ios::trunc);
+	ledFile << "0";
+	ledFile.close();
+	ledFile.open("/sys/devices/platform/leds/leds/beaglebone\:green\:usr3/brightness", std::ios::trunc);
+	ledFile << "0";
+	ledFile.close();
 
 	usleep(1000000);
 
@@ -29,7 +40,7 @@ int main()
 	{
 		validMaze = boi.Map();
 	}
-
+	
 	std::vector<algorithm::Cell*> path = boi.ComputeShortestPath();
 
 	while(1)
@@ -39,7 +50,7 @@ int main()
 		boi.Reset(false);
 		boi.Run(path);
 	}
-	
+
 	/*
 	while(1)
 	{
@@ -88,9 +99,9 @@ int main()
 	boi->init();
 	boi->enableMotors();
 	std::cout << "Initialized." << std::endl;
-	
+
 	usleep(1000000);
-	
+
 	while(1)
 	{
 		if(boi->readButton1())

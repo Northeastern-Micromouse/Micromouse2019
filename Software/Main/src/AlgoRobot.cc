@@ -69,6 +69,11 @@ bool Robot::Map() {
     if (curr->x_ == top_left_goal_x_ && curr->y_ == top_left_goal_y_) {
       Cell* hi = &maze_.get(top_left_goal_x_,top_left_goal_y_);
       while (hi->x_ != 0 || hi->y_ != 0) {
+        std::ofstream ledFile;
+        ledFile.open("/sys/devices/platform/leds/leds/beaglebone\:green\:usr1/brightness", std::ios::trunc);
+        ledFile << "1";
+        ledFile.close();
+
         printf("col: %d row: %d ->", hi->x_, hi->y_);
         hi = hi->actualParent_;
       }
@@ -83,6 +88,7 @@ bool Robot::Map() {
         cells_to_visit.push(neighbor);
       }
     }
+    //maze_.print();
   }
   printf("exiting mapping\n");
 
@@ -164,12 +170,12 @@ std::vector<Cell*> Robot::ComputeShortestPath() {
     Direction prevDir = Direction::NONE;
     int turns = 0;
     for (int i = 0; i < a.size() - 1; i++) {
+      std::cout << GetDirection(a[i], a[i + 1]) << " ";
       if (prevDir != GetDirection(a[i], a[i + 1])) {
-        std::cout << GetDirection(a[i], a[i + 1]) << " ";
         turns+=1;
       }
-      std::cout << std::endl;
     }
+    std::cout << std::endl;
     if (turns < minTurns) {
       minTurns = turns;
       shortestPath = a;
@@ -404,7 +410,7 @@ void Robot::TurnSouth() {
 
 void Robot::Rotate(int degrees) {
   if (!robot_->checkWallFrontFar()) {
-    usleep(500000);
+    robot_->stopSafely();
   }
   robot_->turn(degrees / 90, TURN_SPEED);
 }

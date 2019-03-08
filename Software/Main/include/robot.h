@@ -56,7 +56,7 @@
 
 #define IMU_TOLERANCE				1
 
-#define DRIVE_SPEED			200	// Average drive speed
+#define DRIVE_SPEED			185	// Average drive speed
 #define TURN_SPEED			200	// The max speed at which turns are taken
 #define TURN_ACCEL_ANGLE	0.3 // The angular distance to accelerate over
 #define TURN_ACCEL_DIVS		10	// Number of angular increments to accelerate over
@@ -88,6 +88,7 @@ public:
 	int frontWallCorrect(void);
 	bool readButton1(void);
 	bool readButton2(void);
+	int stopSafely();
 	
 	SensorSystem* getSensorSystem(void);
 	MotorSystem* getMotorSystem(void);
