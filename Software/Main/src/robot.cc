@@ -158,6 +158,46 @@ int Robot::frontWallCorrect()
 	return 0;
 }
 
+void stopSafely()
+{
+	// Decelerate
+	for(int i = 0; i < DRIVE_ACCEL_DIVS; i++)
+	{
+		int steps = (DRIVE_ACCEL_DISTANCE / ((float)DRIVE_ACCEL_DIVS)) / DISTANCE_PER_STEP;
+		float accelSpeed = DRIVE_SPEED + (ACCEL_MIN_SPEED - DRIVE_SPEED)*(((float)i)/((float)DRIVE_ACCEL_DIVS));
+		int accelPeriod = (int)((DISTANCE_PER_STEP * 1000000) / accelSpeed);
+
+		int ret = this->_motorSystem->drive(steps,
+											steps,
+											accelPeriod,
+											accelPeriod,
+											MOTOR_FORWARD,
+											MOTOR_FORWARD,
+											10000);
+		if(ret)
+		{
+			std::cout << "Error decelerating." << std::endl;
+			return ret;
+		}
+	}
+	
+	// Correct for the deceleration distance
+	int steps = ((float)DRIVE_ACCEL_DISTANCE) / ((float)DISTANCE_PER_STEP);
+	int period = (int)((DISTANCE_PER_STEP * 1000000) / WALL_CORRECT_SPEED);
+	int ret = this->_motorSystem->drive(steps,
+										steps,
+										period,
+										period,
+										MOTOR_BACKWARD,
+										MOTOR_BACKWARD,
+										10000);
+	if(ret)
+	{
+		std::cout << "Error decelerating." << std::endl;
+		return ret;
+	}
+}
+
 int Robot::pid_drive()
 {
 	this->_driveCounter++;

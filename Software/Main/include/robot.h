@@ -62,6 +62,8 @@
 #define TURN_ACCEL_DIVS		10	// Number of angular increments to accelerate over
 #define ACCEL_MIN_SPEED		50	// The speed to accelerate from / decelerate to
 #define DRIVE_DISTANCE		180	// The distance of one cell
+#define DRIVE_ACCEL_DISTANCE 15 // The distance over which to decelerate
+#define DRIVE_ACCEL_DIVS	 10 // The number of divisions to divide a deceleration into
 
 namespace micromouse {
 	
