@@ -1,0 +1,8 @@
+[Unit]
+Description=Start boi
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/debian/Main/start.sh
+
