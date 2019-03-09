@@ -1,4 +1,7 @@
 #!/bin/bash
+pkill -f imu
+echo 0 > /sys/devices/platform/leds/leds/beaglebone\:green\:usr2/brightness
+sleep 30
 cd /home/debian/PRU/PRU0
 make
 cd /home/debian/PRU/PRU1

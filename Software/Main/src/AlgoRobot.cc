@@ -39,7 +39,7 @@ bool inPath(std::vector<Cell*> path, Cell* c) {
 }
 
 bool Robot::Map() {
-  printf("starting map\n");
+  //printf("starting map\n");
   curr_x_ = 0;
   curr_y_ = 0;
   std::stack<Cell*> cells_to_visit;
@@ -48,31 +48,22 @@ bool Robot::Map() {
   std::vector<Cell*> visited = {};
 
   while(!cells_to_visit.empty()) {
-	printf("reading buttons\n");
-	if(robot_->readButton1()) {
-	  printf("Read button 1\n");
-      Reset(false);
-	  return true;
-	}
-	if(robot_->readButton2()) {
-	  printf("Read button 2\n");
-	  Reset(true);
-	  return false;
-	}
-	 printf("doing stack stuff\n");
+	 //printf("doing stack stuff\n");
     curr = cells_to_visit.top();
     cells_to_visit.pop();
     std::vector<Cell*> tmppath = {curr};
-	  printf("move\n");
+	  //printf("move\n");
 
     int status = moveToPath(tmppath);
 
     if (status == 1) {
+      printf("returning due to button press\n");
       return true;
     } else if (status == 2) {
+      printf("returning due to button press\n");
       return false;
     }
-    printf("x: %d y:% d\n", curr_x_, curr_y_);
+    //printf("x: %d y:% d\n", curr_x_, curr_y_);
     if (curr->x_ == top_left_goal_x_ && curr->y_ == top_left_goal_y_) {
       Cell* hi = &maze_.get(top_left_goal_x_,top_left_goal_y_);
       while (hi->x_ != 0 || hi->y_ != 0) {
@@ -81,23 +72,23 @@ bool Robot::Map() {
         ledFile << "1";
         ledFile.close();
 
-        printf("col: %d row: %d ->", hi->x_, hi->y_);
+        //printf("col: %d row: %d ->", hi->x_, hi->y_);
         hi = hi->actualParent_;
       }
-      printf("\n");
+      //printf("\n");
     }
     VisitCurrentCell();
     visited.push_back(curr);
     for (auto neighbor: maze_.GetNeighbors(curr->x_, curr->y_)) {
       if (!inPath(visited, neighbor)) {
-		    printf("adding to stack: %d %d\n", neighbor->x_, neighbor->y_);
+		    //printf("adding to stack: %d %d\n", neighbor->x_, neighbor->y_);
         neighbor->actualParent_ = curr;
         cells_to_visit.push(neighbor);
       }
     }
     //maze_.print();
   }
-  printf("exiting mapping\n");
+  //printf("exiting mapping\n");
 
   if (inPath(visited, &maze_.get(top_left_goal_x_, top_left_goal_y_))) {
     return true;
@@ -121,76 +112,44 @@ void Robot::Reset(bool wipeMap) {
 }
 
 std::vector<Cell*> Robot::ComputeShortestPath() {
-  printf("computing shortest path ;) \n\n");
-  std::stack<std::vector<Cell*>> cells_to_visit;
+  printf("starting map\n");
+  maze_.print();
   curr_x_ = 0;
   curr_y_ = 0;
-  std::vector<Cell*> tmppath = {&maze_.get(curr_x_ , curr_y_)};
-  Cell* curr;
-  cells_to_visit.push(tmppath);
-  std::vector<std::vector<Cell*>> possiblePaths;
-  std::vector<Cell*> shortestPath;
+  std::queue<Cell*> cells_to_visit;
+  Cell* curr = &maze_.get(curr_x_, curr_y_);
+  cells_to_visit.push(curr);
+  std::vector<Cell*> visited = {};
 
   while(!cells_to_visit.empty()) {
-  //for (int i = 0; i < 10; i++) {
-    //maze_.print();
-    std::vector<Cell*> tmppath = cells_to_visit.top();
+    curr = cells_to_visit.front();
     cells_to_visit.pop();
-    curr = tmppath.back();
-    //printf("x: %d y: %d\n", curr->x_, curr->y_);
-    //TODO: actually move
-    //TODO: orientation should be set by moving
-
-    curr_x_ = curr->x_;
-    curr_y_ = curr->y_;
-    //robot_->setxy(curr_x_, curr_y_);
-    //if (tmppath.size() > 1) {
-    //  orientation_ = GetDirection(tmppath[tmppath.size() - 2], tmppath[tmppath.size() - 1]);
-    //  robot_->setorientation(orientation_);
-    //} else {
-    //  printf("one elem path\n");
-    //  orientation_ = Direction::SOUTH;
-    //  robot_->setorientation(Direction::SOUTH);
-    //}
-    //TODO dont hardcode this
-    //moveToPath(tmppath);
+    std::vector<Cell*> tmppath = {curr};
     if (curr->x_ == top_left_goal_x_ && curr->y_ == top_left_goal_y_) {
-        possiblePaths.push_back(std::vector<Cell*>(tmppath));
+      printf("reached center: ");
+      Cell* hi = &maze_.get(top_left_goal_x_,top_left_goal_y_);
+      std::vector<Cell*> path = {hi};
+      while (hi->x_ != 0 || hi->y_ != 0) {
+        printf("col: %d row: %d ->", hi->x_, hi->y_);
+        hi = hi->parent_;
+        path.insert(path.begin(), hi);
+      }
+      printf("col: %d row: %d ->", hi->x_, hi->y_);
+      printf("\n");
+      maze_.ClearVisitedAndParent();
+      return path;
     }
-    //printf("visiting curr cell %d %d\n", curr->x_, curr->y_);
-    //VisitCurrentCell();
-	  //printf("neighbor size: %d\n", maze_.GetNeighbors(curr->x_, curr->y_).size());
+    visited.push_back(curr);
     for (auto neighbor: maze_.GetNeighbors(curr->x_, curr->y_)) {
-      if (!inPath(tmppath, neighbor)) {
-        std::vector<Cell*> newpath = tmppath;
-        newpath.push_back(neighbor);
-        cells_to_visit.push(newpath);
+      if (!inPath(visited, neighbor)) {
+        neighbor->parent_ = curr;
+        cells_to_visit.push(neighbor);
       }
     }
   }
 
-  curr_x_ = 0;
-  curr_y_ = 0;
-  shortestPath = possiblePaths[0];
-  int minTurns = INT_MAX;
-  for (auto a : possiblePaths) {
-    Direction prevDir = Direction::NONE;
-    int turns = 0;
-    for (int i = 0; i < a.size() - 1; i++) {
-      std::cout << GetDirection(a[i], a[i + 1]) << " ";
-      if (prevDir != GetDirection(a[i], a[i + 1])) {
-        turns+=1;
-      }
-    }
-    std::cout << std::endl;
-    if (turns < minTurns) {
-      minTurns = turns;
-      shortestPath = a;
-    }
-  }
-  Log("Done computing the shortest path. At location: ");
-
-  return shortestPath;
+  // something went wrong -> should probably blink LED or something?
+  return std::vector<Cell*>();
 }
 
 Direction Robot::GetDirection(Cell* start, Cell* end) {
@@ -470,15 +429,15 @@ int Robot::moveToPath(std::vector<Cell*> tmppath) {
       }
     }
     curr->visited_ = true;
-    printf("in stack: ");
-    printf("x: %d y: %d, ", cells_to_visit.front()->x_, cells_to_visit.front()->y_);
-    printf("\n");
+    //printf("in stack: ");
+    //printf("x: %d y: %d, ", cells_to_visit.front()->x_, cells_to_visit.front()->y_);
+    //printf("\n");
     if (cells_to_visit.empty()) {
       return 0;
     }
     curr = cells_to_visit.front();
     cells_to_visit.pop();
-    printf("setting curr to %d, %d\n", curr->x_, curr->y_);
+    //printf("setting curr to %d, %d\n", curr->x_, curr->y_);
   }
 
   while (curr->x_ != start->x_ || curr->y_ != start->y_) {
@@ -487,19 +446,21 @@ int Robot::moveToPath(std::vector<Cell*> tmppath) {
   }
 
   for (auto d : path) {
+    Move(d);
     std::cout << "dir " << d << ", ";
     printf("reading buttons\n");
     if(robot_->readButton1()) {
-      printf("Read button 1\n");
-        Reset(false);
+      printf("Read button 1 movetopath\n");
+      maze_.ClearVisitedAndParent();
+      Reset(false);
       return 1;
     }
     if(robot_->readButton2()) {
-      printf("Read button 2\n");
+      printf("Read button 2 movetopath\n");
+      maze_.ClearVisitedAndParent();
       Reset(true);
       return 2;
     }
-    Move(d);
   }
   maze_.ClearVisitedAndParent();
   return 0;

@@ -23,7 +23,7 @@ int main()
 	ledFile << "0";
 	ledFile.close();
 	ledFile.open("/sys/devices/platform/leds/leds/beaglebone\:green\:usr2/brightness", std::ios::trunc);
-	ledFile << "0";
+	ledFile << "1";
 	ledFile.close();
 	ledFile.open("/sys/devices/platform/leds/leds/beaglebone\:green\:usr3/brightness", std::ios::trunc);
 	ledFile << "0";
@@ -31,7 +31,7 @@ int main()
 
 	usleep(1000000);
 
-	algorithm::Robot boi = algorithm::Robot(boiLL, true, 16, 16, algorithm::Direction::NORTH);
+	algorithm::Robot boi = algorithm::Robot(boiLL, false, 16, 16, algorithm::Direction::NORTH);
 	boi.Reset(true);
 
 	bool validMaze = false;
@@ -39,7 +39,7 @@ int main()
 	{
 		validMaze = boi.Map();
 	}
-	
+
 	std::vector<algorithm::Cell*> path = boi.ComputeShortestPath();
 
 	while(1)
@@ -87,7 +87,7 @@ int main()
 	std::cout << "Initialized." << std::endl;
 
 	usleep(1000000);
-	
+
 	while(1)
 	{
 		printf(

@@ -57,7 +57,7 @@ int Robot::init()
 
 	this->_motorSystem->disable();
 
-	if(this->_motorSystem->init(10000))
+	if(this->_motorSystem->init(20000))
 	{
 		std::cout << "ERROR: Drive system initialization timed out." << std::endl;
 		return 1;
