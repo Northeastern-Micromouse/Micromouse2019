@@ -83,7 +83,7 @@ class Robot {
 
   Direction GetDirection(Cell* start, Cell* end);
 
-  void moveToPath(std::vector<Cell*> tmppath);
+  int moveToPath(std::vector<Cell*> tmppath);
 
   // Returns true if the robot is inside the goal.
   bool IsInsideGoal();
