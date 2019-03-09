@@ -64,7 +64,14 @@ bool Robot::Map() {
     cells_to_visit.pop();
     std::vector<Cell*> tmppath = {curr};
 	  printf("move\n");
-    moveToPath(tmppath);
+
+    int status = moveToPath(tmppath);
+
+    if (status == 1) {
+      return true;
+    } else if (status == 2) {
+      return false;
+    }
     printf("x: %d y:% d\n", curr_x_, curr_y_);
     if (curr->x_ == top_left_goal_x_ && curr->y_ == top_left_goal_y_) {
       Cell* hi = &maze_.get(top_left_goal_x_,top_left_goal_y_);
@@ -435,7 +442,7 @@ void Robot::GoBack(Direction dir) {
   }
 }
 
-void Robot::moveToPath(std::vector<Cell*> tmppath) {
+int Robot::moveToPath(std::vector<Cell*> tmppath) {
   Cell* curr = &maze_.get(curr_x_, curr_y_);
   Cell* start = curr;
   Cell* end = tmppath[tmppath.size() - 1];
@@ -467,7 +474,7 @@ void Robot::moveToPath(std::vector<Cell*> tmppath) {
     printf("x: %d y: %d, ", cells_to_visit.front()->x_, cells_to_visit.front()->y_);
     printf("\n");
     if (cells_to_visit.empty()) {
-      return;
+      return 0;
     }
     curr = cells_to_visit.front();
     cells_to_visit.pop();
@@ -481,10 +488,21 @@ void Robot::moveToPath(std::vector<Cell*> tmppath) {
 
   for (auto d : path) {
     std::cout << "dir " << d << ", ";
+    printf("reading buttons\n");
+    if(robot_->readButton1()) {
+      printf("Read button 1\n");
+        Reset(false);
+      return 1;
+    }
+    if(robot_->readButton2()) {
+      printf("Read button 2\n");
+      Reset(true);
+      return 2;
+    }
     Move(d);
   }
-
   maze_.ClearVisitedAndParent();
+  return 0;
 }
 
 bool Robot::IsInsideGoal(int x, int y) {
