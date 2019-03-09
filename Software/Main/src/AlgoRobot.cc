@@ -18,10 +18,10 @@ Robot::Robot(micromouse::Robot* robot, bool enable_debugging, int maze_x, int ma
       enable_debugging_(enable_debugging),
       curr_x_(0),
       curr_y_(0),
-      top_left_goal_x_(2),
-      top_left_goal_y_(3),
-      bottom_right_goal_x_(3),
-      bottom_right_goal_y_(2),
+      top_left_goal_x_(7),
+      top_left_goal_y_(8),
+      bottom_right_goal_x_(8),
+      bottom_right_goal_y_(7),
       robot_(robot) {
 
 }

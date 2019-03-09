@@ -206,7 +206,8 @@ int Robot::pid_drive()
 
 	if(this->_driveCounter >= UNCALIBRATED_DRIVE_DISTANCE && checkWallLeft() && checkWallRight())
 	{
-		usleep(750000);
+		//usleep(750000);
+		stopSafely();
 		correctDrift();
 		this->_driveCounter = 0;
 	}
@@ -239,7 +240,7 @@ int Robot::pid_drive()
 
 		if(leftWall && rightWall)
 		{
-			error = rightDistance - leftDistance;
+			error = ERROR_TWOWALL_COEFFICIENT*(rightDistance - leftDistance);
 		}
 
 		else if(leftWall)

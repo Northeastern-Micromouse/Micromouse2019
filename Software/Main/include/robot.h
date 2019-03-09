@@ -30,17 +30,17 @@
 #define TURN_LENGTH				(M_PI/2.0 * ROBOT_WIDTH/2.0)
 #define TURN_STEPS(n)			(int)(fabs(n) * TURN_LENGTH / DISTANCE_PER_STEP)
 
-#define FRONT_WALL_THRESHOLD_CLOSE	3000 // 3170
-#define FRONT_WALL_THRESHOLD_FAR	3400
+#define FRONT_WALL_THRESHOLD_CLOSE	2570 // 3000
+#define FRONT_WALL_THRESHOLD_FAR	3164 // 3400
 #define FRONT_WALL_SPEED_REDUCTION	0.3
 
 #define LEFT_WALL_THRESHOLD			3600
 #define RIGHT_WALL_THRESHOLD		3600
-#define PROPER_FRONT_WALL_DISTANCE	1600
-#define PROPER_LEFT_WALL_DISTANCE	2800
-#define PROPER_RIGHT_WALL_DISTANCE	2687
+#define PROPER_FRONT_WALL_DISTANCE	1600 // 1600
+#define PROPER_LEFT_WALL_DISTANCE	2659 // 2800
+#define PROPER_RIGHT_WALL_DISTANCE	2725 // 2687
 
-#define WALL_CORRECT_SPEED			75
+#define WALL_CORRECT_SPEED			50
 #define WALL_CORRECT_PERIOD			(int)((DISTANCE_PER_STEP * 1000000)/ WALL_CORRECT_SPEED)
 #define WALL_CORRECT_INCREMENT		100
 
@@ -50,18 +50,20 @@
 #define CORRECT_DRIFT_ANGLE			0.6
 #define CORRECT_DRIFT_DELAY			7500
 
+#define ERROR_TWOWALL_COEFFICIENT	1
+
 #define ERROR_TWOWALL_HEADING_COEFFICIENT   1
 #define ERROR_ONEWALL_HEADING_COEFFICIENT   80
 #define ERROR_NOWALL_HEADING_COEFFICIENT	80
 
 #define IMU_TOLERANCE				1
 
-#define DRIVE_SPEED			185	// Average drive speed
+#define DRIVE_SPEED			175	// Average drive speed
 #define TURN_SPEED			200	// The max speed at which turns are taken
 #define TURN_ACCEL_ANGLE	0.3 // The angular distance to accelerate over
 #define TURN_ACCEL_DIVS		10	// Number of angular increments to accelerate over
 #define ACCEL_MIN_SPEED		50	// The speed to accelerate from / decelerate to
-#define DRIVE_DISTANCE		180	// The distance of one cell
+#define DRIVE_DISTANCE		182.5	// The distance of one cell
 #define DRIVE_ACCEL_DISTANCE 15 // The distance over which to decelerate
 #define DRIVE_ACCEL_DIVS	 10 // The number of divisions to divide a deceleration into
 

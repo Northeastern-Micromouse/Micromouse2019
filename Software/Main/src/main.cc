@@ -11,7 +11,6 @@
 
 int main()
 {
-
 	micromouse::Robot* boiLL = new micromouse::Robot();
 
 	std::cout << "Initializing..." << std::endl;
@@ -32,7 +31,7 @@ int main()
 
 	usleep(1000000);
 
-	algorithm::Robot boi = algorithm::Robot(boiLL, true, 6, 6, algorithm::Direction::NORTH);
+	algorithm::Robot boi = algorithm::Robot(boiLL, true, 16, 16, algorithm::Direction::NORTH);
 	boi.Reset(true);
 
 	bool validMaze = false;
@@ -80,13 +79,22 @@ int main()
 	}
 	*/
 	/*
+	micromouse::Robot* boi = new micromouse::Robot();
+
+	std::cout << "Initializing..." << std::endl;
+	boi->init();
+	boi->enableMotors();
+	std::cout << "Initialized." << std::endl;
+
+	usleep(1000000);
+	
 	while(1)
 	{
 		printf(
 			"%4.1f\t%4.1f\t%4.1f\n",
-			boi.getLeftDistance(),
-			boi.getRightDistance(),
-			boi.getFrontDistance()
+			boi->getLeftDistance(),
+			boi->getRightDistance(),
+			boi->getFrontDistance()
 		);
 
 		usleep(100000);

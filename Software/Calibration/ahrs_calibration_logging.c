@@ -76,12 +76,12 @@ int main(int argc, char *argv[])
 			//pru1_dram[MEM_GYRO_X],
 			//pru1_dram[MEM_GYRO_Y],
 			//pru1_dram[MEM_GYRO_Z],
-			//pru1_dram[MEM_MAG_X],
-			//pru1_dram[MEM_MAG_Y],
-			//pru1_dram[MEM_MAG_Z],
-			pru1_dram[MEM_MAG_X_C],
-			pru1_dram[MEM_MAG_Y_C],
-			pru1_dram[MEM_MAG_Z_C]
+			pru1_dram[MEM_SENSORS_MAG_X],
+			pru1_dram[MEM_SENSORS_MAG_Y],
+			pru1_dram[MEM_SENSORS_MAG_Z]
+			//pru1_dram[MEM_MAG_X_C],
+			//pru1_dram[MEM_MAG_Y_C],
+			//pru1_dram[MEM_MAG_Z_C]
 		);
 		
 		fputs(text, f);
